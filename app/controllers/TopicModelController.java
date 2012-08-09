@@ -6,6 +6,11 @@ import play.*;
 import play.libs.Json;
 import play.mvc.*;
 
+import java.io.*;
+import java.util.zip.GZIPInputStream;
+
+import models.TopicModel;
+
 /**
  * Created with IntelliJ IDEA.
  * User: oyiptong
@@ -14,33 +19,51 @@ import play.mvc.*;
  */
 public class TopicModelController extends Controller {
 
-    @BodyParser.Of(BodyParser.Json.class)
-    public static Result create(String modelName) {
 
-        JsonNode jsonData = request().body().asJson();
+    @BodyParser.Of(BodyParser.Raw.class)
+    public static Result create(String modelName) {
         ObjectNode output = Json.newObject();
 
-        if (jsonData == null || jsonData.isContainerNode() == false) {
-            output.put("err", "no json data");
-            return badRequest(output);
+        File file = request().body().asRaw().asFile();
+
+        InputStream rawInput;
+        InputStream input;
+        try {
+            rawInput = new FileInputStream(file);
+        } catch (FileNotFoundException e) {
+            output.put("err", "we lost the file");
+            return internalServerError(output);
         }
 
-        JsonNode items = jsonData.findPath("docs");
-        if (items == null || items.isArray() == false) {
-            output.put("err", "no valid documents provided");
+        try {
+            input = new GZIPInputStream(rawInput);
+        } catch (EOFException e) {
+            output.put("err", "upload was truncated");
             return badRequest(output);
+        } catch (IOException e) {
+            // input not gzipped
+            input = rawInput;
         }
+        Reader dataReader = new BufferedReader(new InputStreamReader(input));
+        try {
+            try {
+                TopicModel model = new TopicModel(modelName, 50, 0.02, 0.02, dataReader);
 
-        for(JsonNode item : items) {
-            String title = item.findPath("title").getTextValue();
-            String text = item.findPath("text").getTextValue();
-            if (text == null || title == null){
-                output.put("err", String.format("document \"%1$s\" is invalid", item.toString()));
-                return badRequest(output);
+                output.put("status", "OK");
+                return ok(output);
+
+            } catch (Exception e) {
+                dataReader.close();
+                System.out.println(e);
+                output.put("err", "a model of that name already exists");
+                return status(409, output);
+
+            } finally {
+                dataReader.close();
             }
+        } catch(IOException e) {
+            return internalServerError("error!");
         }
-        output.put("status", "OK");
-        return ok(modelName);
     }
 
     public static Result delete(String modelName) {
@@ -67,6 +90,7 @@ public class TopicModelController extends Controller {
 
     @BodyParser.Of(BodyParser.Json.class)
     public static Result train(String modelName) {
+        //InstanceList previousInstanceList = null;
         return ok("ok");
     }
 }
