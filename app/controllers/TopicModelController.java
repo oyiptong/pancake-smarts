@@ -1,5 +1,9 @@
 package controllers;
 
+import com.avaje.ebean.Ebean;
+import com.avaje.ebean.ExpressionList;
+import models.Document;
+import models.Topic;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.node.ObjectNode;
 import play.*;
@@ -7,6 +11,7 @@ import play.libs.Json;
 import play.mvc.*;
 
 import java.io.*;
+import java.util.List;
 import java.util.zip.GZIPInputStream;
 
 import models.TopicModel;
@@ -48,6 +53,7 @@ public class TopicModelController extends Controller {
         try {
             try {
                 TopicModel model = new TopicModel(modelName, 50, 0.02, 0.02, dataReader);
+                model.saveObjectGraph();
 
                 output.put("status", "OK");
                 return ok(output);
@@ -55,8 +61,8 @@ public class TopicModelController extends Controller {
             } catch (Exception e) {
                 dataReader.close();
                 System.out.println(e);
-                output.put("err", "a model of that name already exists");
-                return status(409, output);
+                //output.put("err", "a model of that name already exists");
+                return status(409, e.toString());
 
             } finally {
                 dataReader.close();
@@ -67,7 +73,26 @@ public class TopicModelController extends Controller {
     }
 
     public static Result delete(String modelName) {
-        return ok("ok");
+        Ebean.beginTransaction();
+        ObjectNode output = Json.newObject();
+        try {
+            TopicModel model = TopicModel.find.where().eq("name", modelName).findUnique();
+            long modelId = model.getId();
+
+            // TODO: these don't have to be select queries followed by delete queries
+            Ebean.delete(Topic.find.where().eq("topic_model_id", modelId).findList());
+            Ebean.delete(Document.find.where().eq("topic_model_id", modelId).findList());
+            Ebean.delete(model);
+
+            Ebean.commitTransaction();
+
+            return ok("ok");
+        } catch (NullPointerException e) {
+            output.put("err", "topic not found");
+            return status(404, output);
+        } finally {
+            Ebean.endTransaction();
+        }
     }
 
     @BodyParser.Of(BodyParser.Json.class)

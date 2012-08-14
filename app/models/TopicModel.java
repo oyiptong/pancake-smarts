@@ -2,20 +2,22 @@ package models;
 
 import java.io.ByteArrayOutputStream;
 import java.io.Reader;
+import java.security.AllPermission;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.io.ObjectOutputStream;
-import javax.persistence.Entity;
-import javax.persistence.Table;
-import javax.persistence.Column;
-import javax.persistence.Lob;
-import javax.persistence.Id;
-import javax.persistence.GeneratedValue;
+import javax.persistence.*;
+import javax.persistence.CascadeType;
 
+
+import cc.mallet.topics.ParallelTopicModel;
+import com.avaje.ebean.Ebean;
 import play.db.ebean.Model;
 
 import cc.mallet.topics.TopicAssignment;
-import cc.mallet.topics.ParallelTopicModel;
+import cc.mallet.topics.PersistentParallelTopicModel;
 import cc.mallet.util.CharSequenceLexer;
 import cc.mallet.types.InstanceList;
 import cc.mallet.pipe.iterator.CsvIterator;
@@ -38,8 +40,12 @@ import cc.mallet.pipe.FeatureSequence2AugmentableFeatureVector;
 @Table(name="smarts_topic_model")
 public class TopicModel extends Model {
 
+    @Id
+    @GeneratedValue
     private long id;
+
     private double alpha;
+
     private double beta;
 
     @Column(name="num_topics", nullable=false)
@@ -55,12 +61,20 @@ public class TopicModel extends Model {
     @Column(name="feature_sequence", nullable=false)
     private byte[] featureSequence;
 
+    @Column(length=255)
     private String name;
+
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "topicModel")
+    private List<Topic> topics;
+
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "topicModel")
+    private List<Document> documents;
+
+    @Transient
+    private PersistentParallelTopicModel malletTopicModel;
 
     // Getters & Setters
 
-    @Id
-    @GeneratedValue
     public long getId() {
         return id;
     }
@@ -77,9 +91,11 @@ public class TopicModel extends Model {
         return numTopics;
     }
 
-    public ParallelTopicModel getModel() {
-        return new ParallelTopicModel(50);
+    /*
+    public PersistentParallelTopicModel getModel() {
+        //return new PersistentParallelTopicModel(50);
     }
+    */
 
     public String getName() {
         return name;
@@ -88,6 +104,10 @@ public class TopicModel extends Model {
     public void setName(String name) {
         this.name = name;
     }
+
+    public List<Topic> getTopics() { return topics; }
+
+    public List<Document> getDocuments() { return documents; }
 
     /*
      * Standard pipe configuration for LDA modelling
@@ -134,38 +154,81 @@ public class TopicModel extends Model {
         this.featureSequence = baos.toByteArray();
 
         // train model
-        ParallelTopicModel topicModel = new ParallelTopicModel(this.numTopics, this.alpha, this.beta);
-        topicModel.addInstances(instances);
-        topicModel.setNumIterations(1000);
-        topicModel.setOptimizeInterval(100);
-        topicModel.setBurninPeriod(10);
-        topicModel.setSymmetricAlpha(false);
-        topicModel.setNumThreads(4);
+        malletTopicModel = new PersistentParallelTopicModel(this.numTopics, this.alpha, this.beta);
+        malletTopicModel.addInstances(instances);
+        //malletTopicModel.setNumIterations(1000);
+        malletTopicModel.setNumIterations(10);
+        malletTopicModel.setOptimizeInterval(1000);
+        malletTopicModel.setBurninPeriod(10);
+        malletTopicModel.setSymmetricAlpha(false);
+        malletTopicModel.setNumThreads(4);
 
-        topicModel.estimate();
+        malletTopicModel.estimate();
+    }
 
-        baos = new ByteArrayOutputStream();
-        oos = new ObjectOutputStream(baos);
-        oos.writeObject(topicModel);
-        oos.close();
-        this.model = baos.toByteArray();
+    public void saveObjectGraph() throws Exception {
+        Ebean.beginTransaction();
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ObjectOutputStream oos = new ObjectOutputStream(baos);
+            oos.writeObject(malletTopicModel);
+            oos.close();
+            model = baos.toByteArray();
 
-        baos = new ByteArrayOutputStream();
-        oos = new ObjectOutputStream(baos);
-        oos.writeObject(topicModel.getInferencer());
-        oos.close();
-        this.inferencer = baos.toByteArray();
+            baos = new ByteArrayOutputStream();
+            oos = new ObjectOutputStream(baos);
+            oos.writeObject(malletTopicModel.getInferencer());
+            oos.close();
+            inferencer = baos.toByteArray();
 
-        this.save();
+            ArrayList<Topic> topicList = new ArrayList<Topic>();
 
-        ArrayList<TopicAssignment> topics = topicModel.getData();
-        for(TopicAssignment topic : topics) {
-            System.out.println(topic.instance.getName());
+            // create topics
+            Object[][] topicWords = malletTopicModel.getTopWords(40);
+            for(int topicNum = 0; topicNum < this.numTopics; topicNum++) {
+                StringBuilder wordList = new StringBuilder();
+                Object[] words = topicWords[topicNum];
+
+                for(Object w: words) {
+                    wordList.append(w);
+                    wordList.append(" ");
+                }
+                if(wordList.length() > 0) {
+                    // remove trailing space
+                    wordList.deleteCharAt(wordList.length()-1);
+                }
+                Topic topic = new Topic(topicNum, wordList.toString());
+                topics.add(topic);
+
+                topicList.add(topic);
+            }
+
+            // create documents
+            double[][] docWeights = malletTopicModel.getNormalizedDocumentTopicWeights();
+            ArrayList<TopicAssignment> docs = malletTopicModel.getData();
+            for(int docIndex=0; docIndex < docs.size(); docIndex++) {
+                TopicAssignment docAssignment = docs.get(docIndex);
+                String docName = (String) docAssignment.instance.getName();
+
+                for(int topicIndex=0; topicIndex<this.numTopics; topicIndex++) {
+                    double weight = docWeights[docIndex][topicIndex];
+                    Topic topic = topicList.get(topicIndex);
+
+                    Document doc = new Document(docName);
+                    documents.add(doc);
+                    getDocuments().add(doc);
+                    topic.getDocuments().add(doc);
+                }
+            }
+
+            Ebean.save(this);
+            Ebean.save(topics);
+            Ebean.commitTransaction();
+
+        }  finally {
+            Ebean.endTransaction();
         }
     }
 
-    private TopicModel(){
-    }
-
-    public static Finder<Integer,TopicModel> find = new Finder<Integer,TopicModel>(Integer.class, TopicModel.class);
+    public static Finder<Long,TopicModel> find = new Finder<Long,TopicModel>(Long.class, TopicModel.class);
 }

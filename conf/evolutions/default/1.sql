@@ -16,7 +16,7 @@ CREATE TABLE smarts_topic_model (
 CREATE TABLE smarts_topic (
     id BIGINT UNSIGNED AUTO_INCREMENT,
     topic_model_id BIGINT UNSIGNED,
-    number INT UNSIGNED NOT NULL UNIQUE,
+    number INT UNSIGNED NOT NULL,
     word_sample TEXT,
     name VARCHAR(255),
     PRIMARY KEY (id),
