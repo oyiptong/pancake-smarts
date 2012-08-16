@@ -5,6 +5,7 @@ import cc.mallet.topics.TopicAssignment;
 import cc.mallet.types.*;
 import cc.mallet.util.MalletLogger;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -195,11 +196,35 @@ public class PersistentParallelTopicModel extends ParallelTopicModel {
             }
 
             // And normalize
+
+            double weightSum = 0;
             for (int topicId = 0; topicId < numTopics; topicId++) {
-                documentWeights[docIndex][topicId] = (alpha[topicId] + topicCounts[topicId]) / (docLen + alphaSum);
+                weightSum += (alpha[topicId] + topicCounts[topicId]) / (docLen + alphaSum);
+            }
+
+            // Save proportional topic weight
+            for (int topicId = 0; topicId < numTopics; topicId++) {
+                documentWeights[docIndex][topicId] = ((alpha[topicId] + topicCounts[topicId]) / (docLen + alphaSum))/weightSum;
             }
         }
 
         return documentWeights;
+    }
+
+    public static PersistentParallelTopicModel read (byte[] data) throws Exception {
+
+        PersistentParallelTopicModel topicModel = null;
+
+        ObjectInputStream ois = new ObjectInputStream (new ByteArrayInputStream(data));
+        topicModel = (PersistentParallelTopicModel) ois.readObject();
+        ois.close();
+
+        topicModel.initializeHistograms();
+
+        return topicModel;
+    }
+
+    public PancakeTopicInferencer getInferencer(){
+        return new PancakeTopicInferencer(typeTopicCounts, tokensPerTopic, data.get(0).instance.getDataAlphabet(), alpha, beta, betaSum);
     }
 }

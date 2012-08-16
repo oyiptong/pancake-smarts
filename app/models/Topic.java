@@ -24,6 +24,7 @@ public class Topic extends Model {
     @JoinColumn(name="topic_model_id", nullable=false)
     private TopicModel topicModel;
 
+    /*
     @ManyToMany
     @JoinTable(
             name = "smarts_document_topic",
@@ -31,6 +32,10 @@ public class Topic extends Model {
             joinColumns = @JoinColumn(name="topic_id")
     )
     private List<Document> documents;
+    */
+    @OneToMany
+    @JoinColumn(name="topic_id")
+    private List<DocumentTopic> associations;
 
     @Column(length=255)
     private String name;
@@ -57,7 +62,9 @@ public class Topic extends Model {
 
     public TopicModel getTopicModel() { return topicModel; }
 
-    public List<Document> getDocuments() {return documents; }
+    //public List<Document> getDocuments() {return documents; }
+
+    public List<DocumentTopic> getAssociations() { return associations; }
 
     public Topic(int number, String wordSample) {
         this.wordSample = wordSample;

@@ -35,15 +35,22 @@ public class Document extends Model {
     @JoinColumn(name="topic_model_id", nullable=false)
     private TopicModel topicModel;
 
+    /*
     @ManyToMany(
             cascade = {CascadeType.ALL},
             mappedBy = "documents"
     )
     private List<Topic> topics;
+    */
+    @OneToMany
+    @JoinColumn(name="topic_id")
+    private List<DocumentTopic> associations;
 
     public TopicModel getTopicModel() { return topicModel;}
 
-    public List<Topic> getTopics() {return topics;}
+    //public List<Topic> getTopics() {return topics;}
+
+    public List<DocumentTopic> getAssociations() { return associations; }
 
     public Document(String url) {
         this.url = url;

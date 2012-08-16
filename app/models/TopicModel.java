@@ -1,19 +1,24 @@
 package models;
 
-import java.io.ByteArrayOutputStream;
-import java.io.Reader;
-import java.security.AllPermission;
+import java.io.*;
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.io.ObjectOutputStream;
 import javax.persistence.*;
 import javax.persistence.CascadeType;
 
 
-import cc.mallet.topics.ParallelTopicModel;
+import cc.mallet.pipe.iterator.JsonIterator;
+import cc.mallet.topics.PancakeTopicInferencer;
 import com.avaje.ebean.Ebean;
+import com.avaje.ebean.Page;
+import com.avaje.ebean.RawSql;
+import com.avaje.ebean.RawSqlBuilder;
+import org.codehaus.jackson.JsonNode;
+import org.codehaus.jackson.node.DecimalNode;
 import play.db.ebean.Model;
 
 import cc.mallet.topics.TopicAssignment;
@@ -27,7 +32,6 @@ import cc.mallet.pipe.CharSequence2TokenSequence;
 import cc.mallet.pipe.TokenSequenceLowercase;
 import cc.mallet.pipe.TokenSequenceRemoveStopwords;
 import cc.mallet.pipe.TokenSequence2FeatureSequence;
-import cc.mallet.pipe.FeatureSequence2AugmentableFeatureVector;
 
 /**
  * Created with IntelliJ IDEA.
@@ -52,9 +56,11 @@ public class TopicModel extends Model {
     private int numTopics;
 
     @Lob
+    @Basic(fetch = FetchType.EAGER)
     private byte[] model;
 
     @Lob
+    @Basic(fetch = FetchType.EAGER)
     private byte[] inferencer;
 
     @Lob
@@ -156,9 +162,8 @@ public class TopicModel extends Model {
         // train model
         malletTopicModel = new PersistentParallelTopicModel(this.numTopics, this.alpha, this.beta);
         malletTopicModel.addInstances(instances);
-        //malletTopicModel.setNumIterations(1000);
-        malletTopicModel.setNumIterations(10);
-        malletTopicModel.setOptimizeInterval(1000);
+        malletTopicModel.setNumIterations(1000);
+        malletTopicModel.setOptimizeInterval(100);
         malletTopicModel.setBurninPeriod(10);
         malletTopicModel.setSymmetricAlpha(false);
         malletTopicModel.setNumThreads(4);
@@ -182,6 +187,8 @@ public class TopicModel extends Model {
             inferencer = baos.toByteArray();
 
             ArrayList<Topic> topicList = new ArrayList<Topic>();
+            ArrayList<Document> docList = new ArrayList<Document>();
+            ArrayList<DocumentTopic> associationList = new ArrayList<DocumentTopic>();
 
             // create topics
             Object[][] topicWords = malletTopicModel.getTopWords(40);
@@ -206,23 +213,30 @@ public class TopicModel extends Model {
             // create documents
             double[][] docWeights = malletTopicModel.getNormalizedDocumentTopicWeights();
             ArrayList<TopicAssignment> docs = malletTopicModel.getData();
+
             for(int docIndex=0; docIndex < docs.size(); docIndex++) {
                 TopicAssignment docAssignment = docs.get(docIndex);
                 String docName = (String) docAssignment.instance.getName();
+                Document doc = new Document(docName);
 
                 for(int topicIndex=0; topicIndex<this.numTopics; topicIndex++) {
-                    double weight = docWeights[docIndex][topicIndex];
                     Topic topic = topicList.get(topicIndex);
+                    double weight = docWeights[docIndex][topicIndex];
+                    // save the weight
+                    DocumentTopic association = new DocumentTopic(weight, doc, topic);
+                    associationList.add(association);
 
-                    Document doc = new Document(docName);
-                    documents.add(doc);
-                    getDocuments().add(doc);
-                    topic.getDocuments().add(doc);
                 }
+                documents.add(doc);
+                docList.add(doc);
+                getDocuments().add(doc);
+
             }
 
             Ebean.save(this);
             Ebean.save(topics);
+            Ebean.save(associationList);
+
             Ebean.commitTransaction();
 
         }  finally {
@@ -231,4 +245,112 @@ public class TopicModel extends Model {
     }
 
     public static Finder<Long,TopicModel> find = new Finder<Long,TopicModel>(Long.class, TopicModel.class);
+
+    public static TopicModel fetch(String name) throws Exception {
+        TopicModel model = TopicModel.find.where().eq("name", name).findUnique();
+
+        model.malletTopicModel = PersistentParallelTopicModel.read(model.model);
+        return model;
+    }
+
+    protected InstanceList getInferenceVectors(JsonNode docs) throws IOException, ClassNotFoundException
+    {
+        ObjectInputStream ois = new ObjectInputStream (new ByteArrayInputStream(featureSequence));
+        InstanceList currentInstanceList = (InstanceList) ois.readObject();
+        ois.close();
+
+        Pipe instancePipe = currentInstanceList.getPipe();
+
+        InstanceList newInstances = new InstanceList(instancePipe);
+        newInstances.addThruPipe(new JsonIterator(docs));
+
+        return newInstances;
+
+    }
+
+    public List infer(JsonNode jsonData) throws ClassNotFoundException, IOException
+    {
+        PancakeTopicInferencer inferencer = malletTopicModel.getInferencer();
+        InstanceList instances = getInferenceVectors(jsonData);
+
+        List distributions = inferencer.inferDistributions(instances, malletTopicModel.numIterations, 10, malletTopicModel.burninPeriod, 0.0, -1);
+
+        return distributions;
+    }
+
+    public List recommend(JsonNode jsonData, double threshold, int max) throws ClassNotFoundException, IOException
+    {
+        PancakeTopicInferencer inferencer = malletTopicModel.getInferencer();
+        InstanceList instances = getInferenceVectors(jsonData);
+
+        List<List> distributions = inferencer.inferDistributions(instances, malletTopicModel.numIterations, 10, malletTopicModel.burninPeriod, threshold, max);
+
+        List<Topic> topics = Topic.find.where().eq("topic_model_id", getId()).orderBy("number ASC").findList();
+        String[][] topicDocArray = new String[numTopics][max];
+
+        // should not include the document itself
+
+        for(int topicIndex=0; topicIndex < topics.size(); topicIndex++)
+        {
+
+            //List<Document> docList = Document.find.fetch("smarts_document_topic", "weight, topic_id, document_id").where().eq("topic_id", topics.get(topicIndex).getId()).orderBy("weight DESC").setMaxRows(10).findList();
+            String sql
+                    = "SELECT d.id, d.url FROM smarts_document d, smarts_document_topic dt"
+                    + " WHERE dt.topic_id = " + topics.get(topicIndex).getId()
+                    + " AND d.topic_model_id = " + id
+                    + " AND dt.document_id = d.id"
+                    + " ORDER BY weight DESC"
+                    + " LIMIT " + max;
+
+            RawSql rawSql = RawSqlBuilder
+                    .parse(sql)
+                    .columnMapping("d.id", "id")
+                    .columnMapping("d.url", "url")
+                    .create();
+
+            List<Document> docList = Ebean.find(Document.class).setRawSql(rawSql).findList();
+            for(int docIndex=0; docIndex < docList.size() ; docIndex++)
+            {
+                topicDocArray[topicIndex][docIndex] = docList.get(docIndex).getUrl();
+            }
+        }
+
+        ArrayList<Set> recommendations = new ArrayList<Set>();
+
+        for(int docIndex=0; docIndex < distributions.size(); docIndex++)
+        {
+            Set<String> docRecommendations = new HashSet<String>();
+
+            List docData = distributions.get(docIndex);
+            List<List> topicDist = (List<List>) docData.get(1);
+            double totalWeight = 0.0;
+            for (List topicData : topicDist)
+            {
+                totalWeight += ((Double) topicData.get(1)).doubleValue();
+            }
+
+            for (int topicIndex=0 ; topicIndex < topicDist.size(); topicIndex++)
+            {
+                List topicData = topicDist.get(topicIndex);
+                int topicId = ((Integer) topicData.get(0)).intValue();
+                double proportion = ((Double) topicData.get(1)).doubleValue()/totalWeight;
+                BigDecimal roundedUp = new BigDecimal(proportion * max).setScale(0, BigDecimal.ROUND_HALF_UP);
+                int maxNumber = roundedUp.intValue();
+
+                for(int suggestionIndex=0; suggestionIndex < maxNumber+1; suggestionIndex++)
+                {
+                    if (suggestionIndex < topicDocArray[topicId].length)
+                    {
+                        docRecommendations.add(topicDocArray[topicId][suggestionIndex]);
+                    } else
+                    {
+                        break;
+                    }
+                }
+            }
+            recommendations.add(docRecommendations);
+        }
+
+        return recommendations;
+    }
 }

@@ -1,12 +1,12 @@
 package controllers;
 
 import com.avaje.ebean.Ebean;
-import com.avaje.ebean.ExpressionList;
 import models.Document;
 import models.Topic;
 import org.codehaus.jackson.JsonNode;
+import org.codehaus.jackson.map.DeserializationConfig;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.node.ObjectNode;
-import play.*;
 import play.libs.Json;
 import play.mvc.*;
 
@@ -52,7 +52,7 @@ public class TopicModelController extends Controller {
         Reader dataReader = new BufferedReader(new InputStreamReader(input));
         try {
             try {
-                TopicModel model = new TopicModel(modelName, 50, 0.02, 0.02, dataReader);
+                TopicModel model = new TopicModel(modelName, 150, 1/150.0, 1/150.0, dataReader);
                 model.saveObjectGraph();
 
                 output.put("status", "OK");
@@ -61,6 +61,7 @@ public class TopicModelController extends Controller {
             } catch (Exception e) {
                 dataReader.close();
                 System.out.println(e);
+                e.printStackTrace();
                 //output.put("err", "a model of that name already exists");
                 return status(409, e.toString());
 
@@ -86,31 +87,39 @@ public class TopicModelController extends Controller {
 
             Ebean.commitTransaction();
 
-            return ok("ok");
+            output.put("status", "OK");
+            return ok(output);
         } catch (NullPointerException e) {
             output.put("err", "topic not found");
-            return status(404, output);
+            return notFound(output);
         } finally {
             Ebean.endTransaction();
         }
     }
 
     @BodyParser.Of(BodyParser.Json.class)
-    public static Result infer(String modelName) {
+    public static Result recommend(String modelName) {
         JsonNode jsonData = request().body().asJson();
         ObjectNode output = Json.newObject();
-        if (jsonData == null) {
-            output.put("err", "no json data");
-            return badRequest(output);
+        try {
+            TopicModel model = TopicModel.fetch(modelName);
+            List inferences = model.recommend(jsonData, 0.1, 5);
+
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.configure(DeserializationConfig.Feature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+            return ok(mapper.writeValueAsString(inferences));
+            //model.infer(title, text);
+            //model.getInferencer()
+        } catch(NullPointerException e) {
+            output.put("err", "topic model not found");
+            return notFound(output);
+        } catch(Exception e) {
+            output.put("err", "unknown error");
+            System.out.println(e);
+            e.printStackTrace();
+            return internalServerError(output);
         }
-        String text = jsonData.findPath("text").getTextValue();
-        String title = jsonData.findPath("title").getTextValue();
-        if (text == null) {
-            output.put("err", "missing text or title fields in input data");
-            return badRequest(output);
-        }
-        output.put("status", "OK");
-        return ok(output);
     }
 
     @BodyParser.Of(BodyParser.Json.class)
