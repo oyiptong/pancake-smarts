@@ -1,0 +1,32 @@
+@(queryForm : Form[InferenceQuery], modelName : String, results : Map[String, List[String]])
+
+@import helper._
+@import helper.twitterBootstrap._
+
+@main(title="url recommender") {
+        <h4>Topic inference for model: @modelName</h4>
+        @helper.form(action = routes.QueryPageController.queryPost(modelName), args = 'id -> "queryForm") {
+            @helper.inputText(
+                        queryForm("urlInput"),
+                        '_label -> "Enter a url"
+            )
+            <input type="submit" value="Get Topics"/>
+        }
+
+        @if(results.size() > 0) {
+            <div id="results">
+                @for(entry <- results.entrySet()) {
+                    <div class="entry">
+                        <span>Matched topics for <strong>@entry.getKey()</strong></span>
+                        <ol>
+                        @for(topicWords <- entry.getValue()){
+                            <li>
+                                @topicWords
+                            </li>
+                        }
+                        </ol>
+                    </div>
+                }
+            </div>
+        }
+}

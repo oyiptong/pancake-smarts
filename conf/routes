@@ -4,10 +4,13 @@
 
 POST    /smarts/model/:modelName                                        controllers.TopicModelController.create(modelName: String)
 DELETE  /smarts/model/:modelName                                        controllers.TopicModelController.delete(modelName: String)
-GET     /smarts/model/:modelName/recommend                                  controllers.TopicModelController.recommend(modelName: String)
+GET     /smarts/model/:modelName/infer                                  controllers.TopicModelController.infer(modelName: String)
+#GET     /smarts/model/:modelName/recommend                                  controllers.TopicModelController.recommend(modelName: String)
 POST    /smarts/model/:modelName/train                                  controllers.TopicModelController.train(modelName: String)
 
-GET /smarts/query/:modelName/                                          controllers.QueryPageController.query(modelName: String)
+GET /smarts/query/:modelName/                                          controllers.QueryPageController.queryGet(modelName: String)
+
+POST /smarts/query/:modelName/                                          controllers.QueryPageController.queryPost(modelName: String)
 
 # Map static resources from the /public folder to the /assets URL path
 GET     /recommend/assets/*file               controllers.Assets.at(path="/public", file)

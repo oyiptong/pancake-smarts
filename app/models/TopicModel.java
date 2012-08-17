@@ -2,10 +2,7 @@ package models;
 
 import java.io.*;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Pattern;
 import javax.persistence.*;
 import javax.persistence.CascadeType;
@@ -78,6 +75,9 @@ public class TopicModel extends Model {
 
     @Transient
     private PersistentParallelTopicModel malletTopicModel;
+
+    @Transient
+    private InstanceList currentInstanceList;
 
     // Getters & Setters
 
@@ -255,9 +255,11 @@ public class TopicModel extends Model {
 
     protected InstanceList getInferenceVectors(JsonNode docs) throws IOException, ClassNotFoundException
     {
-        ObjectInputStream ois = new ObjectInputStream (new ByteArrayInputStream(featureSequence));
-        InstanceList currentInstanceList = (InstanceList) ois.readObject();
-        ois.close();
+        if (currentInstanceList == null) {
+            ObjectInputStream ois = new ObjectInputStream (new ByteArrayInputStream(featureSequence));
+            currentInstanceList = (InstanceList) ois.readObject();
+            ois.close();
+        }
 
         Pipe instancePipe = currentInstanceList.getPipe();
 
@@ -268,16 +270,72 @@ public class TopicModel extends Model {
 
     }
 
-    public List infer(JsonNode jsonData) throws ClassNotFoundException, IOException
+    /*
+    public Map<String, List<Topic>> infer(JsonNode jsonData) throws ClassNotFoundException, IOException
     {
+
+        int maxTopics = 5;
         PancakeTopicInferencer inferencer = malletTopicModel.getInferencer();
         InstanceList instances = getInferenceVectors(jsonData);
 
-        List distributions = inferencer.inferDistributions(instances, malletTopicModel.numIterations, 10, malletTopicModel.burninPeriod, 0.0, -1);
+        List<Topic> topics = Topic.find.where().eq("topic_model_id", getId()).orderBy("number ASC").findList();
 
-        return distributions;
+        List<List> distributions = inferencer.inferDistributions(instances, malletTopicModel.numIterations, 10, malletTopicModel.burninPeriod, 0.0, maxTopics);
+
+        Map<String, List<Topic>> output = new HashMap<String, List<Topic>>();
+
+        for(int docIndex=0; docIndex < distributions.size(); docIndex++)
+        {
+            List docData = distributions.get(docIndex);
+            List<List> topicDist = (List<List>) docData.get(1);
+
+            List<Topic> docTopics = new ArrayList<Topic>();
+            for(int topicIndex=0; topicIndex < maxTopics; topicIndex++)
+            {
+                List topicData = topicDist.get(topicIndex);
+                int topicId = ((Integer) topicData.get(0)).intValue();
+                Topic topic = topics.get(topicId);
+                docTopics.add(topic);
+            }
+            output.put((String )docData.get(0), docTopics);
+        }
+
+        return output;
+    } */
+
+    public Map<String, List<String>> inferString(JsonNode jsonData) throws ClassNotFoundException, IOException
+    {
+
+        int maxTopics = 5;
+        PancakeTopicInferencer inferencer = malletTopicModel.getInferencer();
+        InstanceList instances = getInferenceVectors(jsonData);
+
+        List<Topic> topics = Topic.find.where().eq("topic_model_id", getId()).orderBy("number ASC").findList();
+
+        List<List> distributions = inferencer.inferDistributions(instances, malletTopicModel.numIterations, 10, malletTopicModel.burninPeriod, 0.0, maxTopics);
+
+        Map<String, List<String>> output = new HashMap<String, List<String>>();
+
+        for(int docIndex=0; docIndex < distributions.size(); docIndex++)
+        {
+            List docData = distributions.get(docIndex);
+            List<List> topicDist = (List<List>) docData.get(1);
+
+            List<String> docTopicWords = new ArrayList<String>();
+            for(int topicIndex=0; topicIndex < maxTopics; topicIndex++)
+            {
+                List topicData = topicDist.get(topicIndex);
+                int topicId = ((Integer) topicData.get(0)).intValue();
+                Topic topic = topics.get(topicId);
+                docTopicWords.add(topic.getWordSample());
+            }
+            output.put((String )docData.get(0), docTopicWords);
+        }
+
+        return output;
     }
 
+    /*
     public List recommend(JsonNode jsonData, double threshold, int max) throws ClassNotFoundException, IOException
     {
         PancakeTopicInferencer inferencer = malletTopicModel.getInferencer();
@@ -352,5 +410,5 @@ public class TopicModel extends Model {
         }
 
         return recommendations;
-    }
+    }*/
 }

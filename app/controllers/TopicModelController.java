@@ -7,11 +7,13 @@ import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.DeserializationConfig;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.node.ObjectNode;
+import play.cache.Cache;
 import play.libs.Json;
 import play.mvc.*;
 
 import java.io.*;
 import java.util.List;
+import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
 import models.TopicModel;
@@ -98,6 +100,36 @@ public class TopicModelController extends Controller {
     }
 
     @BodyParser.Of(BodyParser.Json.class)
+    public static Result infer(String modelName) {
+        JsonNode jsonData = request().body().asJson();
+        ObjectNode output = Json.newObject();
+
+        String cache_key = "topicModel." + modelName;
+
+        try {
+            TopicModel topicModel = (TopicModel) Cache.get(cache_key);
+            if (topicModel == null) {
+                topicModel = TopicModel.fetch(modelName);
+            }
+            Map<String, List<String>> inferences = topicModel.inferString(jsonData);
+            Cache.set(cache_key, topicModel);
+
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.configure(DeserializationConfig.Feature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+            return ok(mapper.writeValueAsString(inferences));
+        } catch(NullPointerException e) {
+            output.put("err", "topic model not found");
+            return notFound(output);
+        } catch(Exception e) {
+            output.put("err", "unknown error");
+            System.out.println(e);
+            e.printStackTrace();
+            return internalServerError(output);
+        }
+    }
+    /*
+    @BodyParser.Of(BodyParser.Json.class)
     public static Result recommend(String modelName) {
         JsonNode jsonData = request().body().asJson();
         ObjectNode output = Json.newObject();
@@ -120,7 +152,7 @@ public class TopicModelController extends Controller {
             e.printStackTrace();
             return internalServerError(output);
         }
-    }
+    }*/
 
     @BodyParser.Of(BodyParser.Json.class)
     public static Result train(String modelName) {
