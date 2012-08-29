@@ -11,4 +11,22 @@ import play.data.validation.Constraints;
 public class InferenceQuery {
     @Constraints.Required
     public String urlInput;
+
+    @Constraints.Required
+    public String maxTopics;
+
+    @Constraints.Required
+    public String maxRecommendations;
+
+    public InferenceQuery(String urlInput, String maxTopics, String maxRecommendations)
+    {
+        this.urlInput = urlInput;
+        this.maxTopics = maxTopics;
+        this.maxRecommendations = maxRecommendations;
+    }
+
+    public InferenceQuery()
+    {
+
+    }
 }

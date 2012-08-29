@@ -166,7 +166,7 @@ public class TopicModel extends Model {
         malletTopicModel.setOptimizeInterval(100);
         malletTopicModel.setBurninPeriod(10);
         malletTopicModel.setSymmetricAlpha(false);
-        malletTopicModel.setNumThreads(4);
+        malletTopicModel.setNumThreads(8);
 
         malletTopicModel.estimate();
     }
@@ -303,10 +303,8 @@ public class TopicModel extends Model {
         return output;
     } */
 
-    public Map<String, List<String>> inferString(JsonNode jsonData) throws ClassNotFoundException, IOException
+    public Map<String, List<String>> inferString(JsonNode jsonData, int maxTopics) throws ClassNotFoundException, IOException
     {
-
-        int maxTopics = 5;
         PancakeTopicInferencer inferencer = malletTopicModel.getInferencer();
         InstanceList instances = getInferenceVectors(jsonData);
 
@@ -335,6 +333,81 @@ public class TopicModel extends Model {
         return output;
     }
 
+    public List recommend(JsonNode jsonData, int maxRecommendations, int maxTopics) throws ClassNotFoundException, IOException
+    {
+        PancakeTopicInferencer inferencer = malletTopicModel.getInferencer();
+        InstanceList instances = getInferenceVectors(jsonData);
+
+        List<Topic> topics = Topic.find.where().eq("topic_model_id", getId()).orderBy("number ASC").findList();
+
+        List<List> distributions = inferencer.inferDistributions(instances, malletTopicModel.numIterations, 10, malletTopicModel.burninPeriod, 0.0, maxTopics);
+        System.out.println(distributions);
+
+        // output containers
+        List output = new ArrayList(2);
+        Map<String, List<String>> inference = new HashMap<String, List<String>>();
+        List<String> recommendations = new ArrayList<String>();
+        Set<String> allRecommendations = new HashSet<String>();
+
+        for(int docIndex=0; docIndex < distributions.size(); docIndex++)
+        {
+            List docData = distributions.get(docIndex);
+            List<List> topicDist = (List<List>) docData.get(1);
+
+            // calculate total weight per topic for recommendation proportions per topic
+            double totalWeight = 0;
+            for (int topicIndex=0; topicIndex < maxTopics; topicIndex++)
+            {
+                List topicData = topicDist.get(topicIndex);
+                totalWeight += ((Double) topicData.get(1)).doubleValue();
+            }
+
+            // obtain topics and recommendations
+            List<String> docTopicWords = new ArrayList<String>();
+            for(int topicIndex=0; topicIndex < maxTopics; topicIndex++)
+            {
+                List topicData = topicDist.get(topicIndex);
+
+                // find out how many recommendations to fetch
+                double topicWeight = ((Double) topicData.get(1)).doubleValue();
+                double inverseProportion = (totalWeight - topicWeight) / totalWeight;
+                BigDecimal roundedUp = new BigDecimal(inverseProportion * maxRecommendations).setScale(0, BigDecimal.ROUND_HALF_UP);
+                int maxNumberPerTopic = roundedUp.intValue();
+
+                // obtain recommendations
+                String sql
+                        = "SELECT d.id, d.url FROM smarts_document d, smarts_document_topic dt"
+                        + " WHERE dt.topic_id = " + topics.get(topicIndex).getId()
+                        + " AND d.topic_model_id = " + id
+                        + " AND dt.document_id = d.id"
+                        + " ORDER BY weight DESC"
+                        + " LIMIT " + maxNumberPerTopic;
+
+                RawSql rawSql = RawSqlBuilder
+                        .parse(sql)
+                        .columnMapping("d.id", "id")
+                        .columnMapping("d.url", "url")
+                        .create();
+
+                List<Document> topicRecommendations = Ebean.find(Document.class).setRawSql(rawSql).findList();
+                for(Document doc : topicRecommendations) {
+                    if(!allRecommendations.contains(doc.getUrl())) {
+                        recommendations.add(doc.getUrl());
+                        allRecommendations.add(doc.getUrl());
+                    }
+                }
+
+                int topicId = ((Integer) topicData.get(0)).intValue();
+                Topic topic = topics.get(topicId);
+                docTopicWords.add(topic.getWordSample());
+            }
+            inference.put((String )docData.get(0), docTopicWords);
+        }
+        output.add(inference);
+        output.add(recommendations);
+        return output;
+    }
+
     /*
     public List recommend(JsonNode jsonData, double threshold, int max) throws ClassNotFoundException, IOException
     {
@@ -357,7 +430,7 @@ public class TopicModel extends Model {
                     + " WHERE dt.topic_id = " + topics.get(topicIndex).getId()
                     + " AND d.topic_model_id = " + id
                     + " AND dt.document_id = d.id"
-                    + " ORDER BY weight DESC"
+                    + " ORDER BY weight ASC"
                     + " LIMIT " + max;
 
             RawSql rawSql = RawSqlBuilder

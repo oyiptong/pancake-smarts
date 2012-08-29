@@ -47,7 +47,6 @@ porter = PorterStemmer()
 gpool = eventlet.GreenPool(10)
 
 non_alnum = re.compile('[\W_]+')
-#en_stopwords = nltk.corpus.stopwords.words('english')
 
 url_count = 0
 added_count = 0

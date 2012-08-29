@@ -2,10 +2,10 @@
 # This file defines all application routes (Higher priority routes first)
 # ~~~~
 
-POST    /smarts/model/:modelName                                        controllers.TopicModelController.create(modelName: String)
+POST    /smarts/model/:modelName                                        controllers.TopicModelController.create(modelName: String, numTopics: java.lang.Integer ?= 150)
 DELETE  /smarts/model/:modelName                                        controllers.TopicModelController.delete(modelName: String)
 GET     /smarts/model/:modelName/infer                                  controllers.TopicModelController.infer(modelName: String)
-#GET     /smarts/model/:modelName/recommend                                  controllers.TopicModelController.recommend(modelName: String)
+
 POST    /smarts/model/:modelName/train                                  controllers.TopicModelController.train(modelName: String)
 
 GET /smarts/query/:modelName/                                          controllers.QueryPageController.queryGet(modelName: String)

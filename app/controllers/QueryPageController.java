@@ -15,10 +15,7 @@ import models.InferenceQuery;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 
 /**
@@ -51,21 +48,40 @@ public class QueryPageController extends Controller {
         }
 
         Map results = new HashMap<String, List<String>>();
-        return ok(views.html.QueryPageController.query.render(queryForm, modelName, results));
+        List<String> recommendations = new ArrayList<String>(0);
+        return ok(views.html.QueryPageController.query.render(queryForm, modelName, results, recommendations));
     }
 
     public static Result queryPost(String modelName) {
         response().setContentType("text/html");
 
+        Map results;
+        List<String> recommendations;
+
         Form<InferenceQuery> inputForm = queryForm.bindFromRequest();
-        if(inputForm.hasErrors()) {
-            return badRequest("bad input");
+        if(inputForm.hasErrors())
+        {
+            System.out.println(inputForm.errors());
+            results = new HashMap();
+            recommendations = new ArrayList<String>(0);
+            return badRequest(views.html.QueryPageController.query.render(queryForm, modelName, results, recommendations));
         }
         InferenceQuery query = inputForm.get();
+
+        int maxTopics;
+        int maxRecommendations;
+        try
+        {
+            maxTopics = Integer.parseInt(query.maxTopics);
+            maxRecommendations = Integer.parseInt(query.maxRecommendations);
+        } catch(Exception e)
+        {
+            return badRequest("bad input: numeric parameters invalid");
+        }
         F.Promise<WS.Response> diffbotQuery;
 
         try {
-            diffbotQuery = WS.url(diffbotUrl).setQueryParameter("token", "XXX").setQueryParameter("url", query.urlInput).get();
+            diffbotQuery = WS.url(diffbotUrl).setQueryParameter("token", "xxx").setQueryParameter("url", query.urlInput).get();
         } catch (Exception e) {
             return badRequest("please enter a valid url");
         }
@@ -111,15 +127,24 @@ public class QueryPageController extends Controller {
         ObjectMapper mapper = new ObjectMapper();
         JsonNode inputNode = mapper.valueToTree(input);
 
-        Map results;
         try
         {
-            results = topicModel.inferString(inputNode);
+            if (maxRecommendations > 0)
+            {
+                List rec = topicModel.recommend(inputNode, maxTopics, maxRecommendations);
+                results = (Map) rec.get(0);
+                recommendations = (List<String>) rec.get(1);
+                results.remove(recommendations);
+            } else
+            {
+                results = topicModel.inferString(inputNode, maxTopics);
+                recommendations = new ArrayList<String>(0);
+            }
         } catch (Exception e)
         {
             e.printStackTrace();
             return internalServerError("error occurred during inference. Sorry");
         }
-        return ok(views.html.QueryPageController.query.render(queryForm, modelName, results));
+        return ok(views.html.QueryPageController.query.render(queryForm, modelName, results, recommendations));
     }
 }

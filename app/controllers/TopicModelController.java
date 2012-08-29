@@ -28,7 +28,7 @@ public class TopicModelController extends Controller {
 
 
     @BodyParser.Of(BodyParser.Raw.class)
-    public static Result create(String modelName) {
+    public static Result create(String modelName, Integer numTopics) {
         ObjectNode output = Json.newObject();
 
         File file = request().body().asRaw().asFile();
@@ -52,9 +52,10 @@ public class TopicModelController extends Controller {
             input = rawInput;
         }
         Reader dataReader = new BufferedReader(new InputStreamReader(input));
+
         try {
             try {
-                TopicModel model = new TopicModel(modelName, 150, 1/150.0, 1/150.0, dataReader);
+                TopicModel model = new TopicModel(modelName, numTopics.intValue(), 1/150.0, 1/150.0, dataReader);
                 model.saveObjectGraph();
 
                 output.put("status", "OK");
@@ -111,7 +112,7 @@ public class TopicModelController extends Controller {
             if (topicModel == null) {
                 topicModel = TopicModel.fetch(modelName);
             }
-            Map<String, List<String>> inferences = topicModel.inferString(jsonData);
+            Map<String, List<String>> inferences = topicModel.inferString(jsonData, 5);
             Cache.set(cache_key, topicModel);
 
             ObjectMapper mapper = new ObjectMapper();
@@ -128,31 +129,6 @@ public class TopicModelController extends Controller {
             return internalServerError(output);
         }
     }
-    /*
-    @BodyParser.Of(BodyParser.Json.class)
-    public static Result recommend(String modelName) {
-        JsonNode jsonData = request().body().asJson();
-        ObjectNode output = Json.newObject();
-        try {
-            TopicModel model = TopicModel.fetch(modelName);
-            List inferences = model.recommend(jsonData, 0.1, 5);
-
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.configure(DeserializationConfig.Feature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
-            return ok(mapper.writeValueAsString(inferences));
-            //model.infer(title, text);
-            //model.getInferencer()
-        } catch(NullPointerException e) {
-            output.put("err", "topic model not found");
-            return notFound(output);
-        } catch(Exception e) {
-            output.put("err", "unknown error");
-            System.out.println(e);
-            e.printStackTrace();
-            return internalServerError(output);
-        }
-    }*/
 
     @BodyParser.Of(BodyParser.Json.class)
     public static Result train(String modelName) {

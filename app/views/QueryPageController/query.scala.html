@@ -1,4 +1,4 @@
-@(queryForm : Form[InferenceQuery], modelName : String, results : Map[String, List[String]])
+@(queryForm : Form[InferenceQuery], modelName : String, results : Map[String, List[String]], recommendations : List[String])
 
 @import helper._
 @import helper.twitterBootstrap._
@@ -8,8 +8,30 @@
         @helper.form(action = routes.QueryPageController.queryPost(modelName), args = 'id -> "queryForm") {
             @helper.inputText(
                         queryForm("urlInput"),
-                        '_label -> "Enter a url"
+                        '_label -> "Enter a url",
+                        '_showErrors -> true
             )
+            <div class="clearfix  " id="maxTopics_field">
+                <label for="maxTopics">maxTopics</label>
+                <div class="input">
+
+                    <input type="number" id="maxTopics" name="maxTopics" value="5" >
+
+                    <span class="help-inline"></span>
+                    <span class="help-block">Required</span>
+                </div>
+            </div>
+
+            <div class="clearfix  " id="maxRecommendations_field">
+                <label for="maxRecommendations">maxRecommendations</label>
+                <div class="input">
+
+                    <input type="number" id="maxRecommendations" name="maxRecommendations" value="5" >
+
+                    <span class="help-inline"></span>
+                    <span class="help-block">Required</span>
+                </div>
+            </div>
             <input type="submit" value="Get Topics"/>
         }
 
@@ -19,14 +41,27 @@
                     <div class="entry">
                         <span>Matched topics for <strong>@entry.getKey()</strong></span>
                         <ol>
-                        @for(topicWords <- entry.getValue()){
-                            <li>
-                                @topicWords
-                            </li>
-                        }
+                            @for(topicWords <- entry.getValue()) {
+                                <li>
+                                    @topicWords
+                                </li>
+                            }
                         </ol>
                     </div>
                 }
+            </div>
+        }
+
+        @if(recommendations.size() > 0) {
+            <div id="recommendations">
+                <span>Recommendations</span>
+                <ol>
+                    @for(recco <- recommendations) {
+                        <li>
+                            <a href="@recco">@recco</a>
+                        </li>
+                    }
+                </ol>
             </div>
         }
 }
