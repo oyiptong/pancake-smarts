@@ -1,4 +1,4 @@
-@(queryForm : Form[InferenceQuery], modelName : String, results : Map[String, List[String]], recommendations : List[String])
+@(queryForm : Form[InferenceQuery], modelName : String, inferredWords : Map[String, List[String]], recommendations : List[String], distributionWeights : Map[String, List[Double]], recommendationWeights : List[String])
 
 @import helper._
 @import helper.twitterBootstrap._
@@ -35,15 +35,17 @@
             <input type="submit" value="Get Topics"/>
         }
 
-        @if(results.size() > 0) {
+        @if(inferredWords.size() > 0) {
             <div id="results">
-                @for(entry <- results.entrySet()) {
+                @for(entry <- inferredWords.entrySet()) {
                     <div class="entry">
                         <span>Matched topics for <strong>@entry.getKey()</strong></span>
                         <ol>
-                            @for(topicWords <- entry.getValue()) {
+                            @for((topicWords, index) <- entry.getValue().zipWithIndex) {
                                 <li>
-                                    @topicWords
+                                <strong>
+                                    @String.format("%1.2f%%", distributionWeights(entry.getKey())(index))
+                                </strong>: @topicWords
                                 </li>
                             }
                         </ol>
@@ -56,9 +58,9 @@
             <div id="recommendations">
                 <span>Recommendations</span>
                 <ol>
-                    @for(recco <- recommendations) {
+                    @for((recco, index) <- recommendations.zipWithIndex) {
                         <li>
-                            <a href="@recco">@recco</a>
+                            @recommendationWeights(index) <a href="@recco">@recco</a>
                         </li>
                     }
                 </ol>

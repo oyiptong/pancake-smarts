@@ -1,5 +1,6 @@
 package models;
 
+import org.codehaus.jackson.map.ObjectMapper;
 import play.db.ebean.Model;
 
 import javax.persistence.*;
@@ -31,6 +32,12 @@ public class Document extends Model {
 
     private String url;
 
+    @Transient
+    private double weight;
+
+    @Column(name="topic_distribution")
+    private String topicDistribution;
+
     @ManyToOne
     @JoinColumn(name="topic_model_id", nullable=false)
     private TopicModel topicModel;
@@ -52,9 +59,16 @@ public class Document extends Model {
 
     public List<DocumentTopic> getAssociations() { return associations; }
 
-    public Document(String url) {
+    public Document(String url, double[] topicDistribution) throws Exception {
         this.url = url;
+
+        ObjectMapper mapper = new ObjectMapper();
+        this.topicDistribution = mapper.writeValueAsString(topicDistribution);
     }
 
     public static Finder<Long,Document> find = new Finder<Long,Document>(Long.class, Document.class);
+
+    public double getWeight() {
+        return weight;
+    }
 }

@@ -4,6 +4,7 @@ CREATE TABLE smarts_document (
     id BIGINT UNSIGNED AUTO_INCREMENT,
     topic_model_id BIGINT UNSIGNED,
     url TEXT,
+    topic_distribution TEXT,
     PRIMARY KEY (id),
     FOREIGN KEY (topic_model_id) REFERENCES smarts_topic_model(id) ON DELETE CASCADE
 ) ENGINE InnoDB;
