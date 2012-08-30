@@ -1,4 +1,4 @@
-@(queryForm : Form[InferenceQuery], modelName : String, inferredWords : Map[String, List[String]], recommendations : List[String], distributionWeights : Map[String, List[Double]], recommendationWeights : List[String])
+@(queryForm : Form[InferenceQuery], modelName : String, inferredWords : Map[String, List[String]], recommendations : List[String], distributionWeights : Map[String, List[String]], recommendationWeights : List[String])
 
 @import helper._
 @import helper.twitterBootstrap._
@@ -44,7 +44,7 @@
                             @for((topicWords, index) <- entry.getValue().zipWithIndex) {
                                 <li>
                                 <strong>
-                                    @String.format("%1.2f%%", distributionWeights(entry.getKey())(index))
+                                    @distributionWeights(entry.getKey())(index)
                                 </strong>: @topicWords
                                 </li>
                             }

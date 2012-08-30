@@ -49,7 +49,7 @@ public class QueryPageController extends Controller {
 
         Map inferredWords = new HashMap<String, List<String>>();
         List<String> recommendations = new ArrayList<String>(0);
-        HashMap<String, List<Double>> distributionWeights = new HashMap<String, List<Double>>();
+        HashMap<String, List<String>> distributionWeights = new HashMap<String, List<String>>();
         List<String> recommendationWeights = new ArrayList<String>(0);
         return ok(views.html.QueryPageController.query.render(queryForm, modelName, inferredWords, recommendations, distributionWeights, recommendationWeights));
     }
@@ -59,7 +59,7 @@ public class QueryPageController extends Controller {
 
         Map inferredWords;
         List<String> recommendations;
-        HashMap<String, List<Double>> distributionWeights;
+        HashMap<String, List<String>> distributionWeights;
         List<String> recommendationWeights;
 
         Form<InferenceQuery> inputForm = queryForm.bindFromRequest();
@@ -68,7 +68,7 @@ public class QueryPageController extends Controller {
             System.out.println(inputForm.errors());
             inferredWords = new HashMap();
             recommendations = new ArrayList<String>(0);
-            distributionWeights = new HashMap<String, List<Double>>();
+            distributionWeights = new HashMap<String, List<String>>();
             recommendationWeights = new ArrayList<String>();
             return badRequest(views.html.QueryPageController.query.render(queryForm, modelName, inferredWords, recommendations, distributionWeights, recommendationWeights));
         }
@@ -142,13 +142,13 @@ public class QueryPageController extends Controller {
                 recommendations = (List<String>) rec.get(1);
                 // remove the document itself from recommendations if it exists
                 inferredWords.remove(recommendations);
-                distributionWeights = (HashMap<String, List<Double>>) rec.get(2);
+                distributionWeights = (HashMap<String, List<String>>) rec.get(2);
                 recommendationWeights = (List<String>) rec.get(3);
             } else
             {
                 inferredWords = topicModel.inferString(inputNode, maxTopics);
                 recommendations = new ArrayList<String>(0);
-                distributionWeights = new HashMap<String, List<Double>>();
+                distributionWeights = new HashMap<String, List<String>>();
                 recommendationWeights = new ArrayList<String>(0);
             }
         } catch (Exception e)

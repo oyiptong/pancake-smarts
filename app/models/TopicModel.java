@@ -348,7 +348,7 @@ public class TopicModel extends Model {
         // output containers
         List output = new ArrayList(2);
         Map<String, List<String>> inferredWords = new HashMap<String, List<String>>();
-        HashMap<String, List<Double>> distributionWeights = new HashMap<String, List<Double>>();
+        HashMap<String, List<String>> distributionWeights = new HashMap<String, List<String>>();
         List<String> recommendations = new ArrayList<String>();
         List<String> recommendationWeights = new ArrayList<String>();
         Set<String> allRecommendations = new HashSet<String>();
@@ -370,11 +370,13 @@ public class TopicModel extends Model {
 
             // obtain topics and recommendations
             List<String> docTopicWords = new ArrayList<String>();
-            List<Double> docTopicWeights = new ArrayList<Double>();
+            List<String> docTopicWeights = new ArrayList<String>();
 
             for(int topicIndex=0; topicIndex < maxTopics; topicIndex++)
             {
                 List topicData = topicDist.get(topicIndex);
+                int topicNumber = ((Integer) topicData.get(0)).intValue();
+
 
                 // find out how many recommendations to fetch
                 double topicWeight = ((Double) topicData.get(1)).doubleValue();
@@ -384,8 +386,9 @@ public class TopicModel extends Model {
 
                 // obtain recommendations
                 String sql
-                        = "SELECT d.id, d.url, dt.weight FROM smarts_document d, smarts_document_topic dt"
-                        + " WHERE dt.topic_id = " + topics.get(topicIndex).getId()
+                        = "SELECT d.id, d.url, dt.weight FROM smarts_document d, smarts_document_topic dt, smarts_topic t"
+                        + " WHERE dt.topic_id = t.id"
+                        + " AND t.number = "+ topicNumber
                         + " AND d.topic_model_id = " + id
                         + " AND dt.document_id = d.id"
                         + " ORDER BY dt.weight DESC"
@@ -403,14 +406,13 @@ public class TopicModel extends Model {
                     if(!allRecommendations.contains(doc.getUrl())) {
                         recommendations.add(doc.getUrl());
                         allRecommendations.add(doc.getUrl());
-                        recommendationWeights.add(String.format("topic: %d match with topic: %.2f%%", topics.get(topicIndex).getId(), doc.getWeight()));
+                        recommendationWeights.add(String.format("topic: %d match with topic: %.2f%%", topicNumber, doc.getWeight()));
                     }
                 }
 
-                int topicId = ((Integer) topicData.get(0)).intValue();
-                Topic topic = topics.get(topicId);
+                Topic topic = topics.get(topicNumber);
                 docTopicWords.add(topic.getWordSample());
-                docTopicWeights.add(Double.valueOf(topicWeight));
+                docTopicWeights.add(String.format("topic #%d match: %.2f%%", topicNumber, topicWeight));
             }
             inferredWords.put((String)distData.get(0), docTopicWords);
             distributionWeights.put((String) distData.get(0), docTopicWeights);
