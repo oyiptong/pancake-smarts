@@ -4,9 +4,7 @@ import org.codehaus.jackson.map.ObjectMapper;
 import play.db.ebean.Model;
 
 import javax.persistence.*;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Created with IntelliJ IDEA.
@@ -42,22 +40,7 @@ public class Document extends Model {
     @JoinColumn(name="topic_model_id", nullable=false)
     private TopicModel topicModel;
 
-    /*
-    @ManyToMany(
-            cascade = {CascadeType.ALL},
-            mappedBy = "documents"
-    )
-    private List<Topic> topics;
-    */
-    @OneToMany
-    @JoinColumn(name="topic_id")
-    private List<DocumentTopic> associations;
-
     public TopicModel getTopicModel() { return topicModel;}
-
-    //public List<Topic> getTopics() {return topics;}
-
-    public List<DocumentTopic> getAssociations() { return associations; }
 
     public Document(String url, double[] topicDistribution) throws Exception {
         this.url = url;

@@ -3,9 +3,7 @@ package models;
 import play.db.ebean.Model;
 
 import javax.persistence.*;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 @Entity
 @Table(name="smarts_topic")
@@ -23,19 +21,6 @@ public class Topic extends Model {
     @ManyToOne(optional = false)
     @JoinColumn(name="topic_model_id", nullable=false)
     private TopicModel topicModel;
-
-    /*
-    @ManyToMany
-    @JoinTable(
-            name = "smarts_document_topic",
-            inverseJoinColumns = @JoinColumn(name="document_id"),
-            joinColumns = @JoinColumn(name="topic_id")
-    )
-    private List<Document> documents;
-    */
-    @OneToMany
-    @JoinColumn(name="topic_id")
-    private List<DocumentTopic> associations;
 
     @Column(length=255)
     private String name;
@@ -61,10 +46,6 @@ public class Topic extends Model {
     }
 
     public TopicModel getTopicModel() { return topicModel; }
-
-    //public List<Document> getDocuments() {return documents; }
-
-    public List<DocumentTopic> getAssociations() { return associations; }
 
     public Topic(int number, String wordSample) {
         this.wordSample = wordSample;

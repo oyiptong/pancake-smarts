@@ -11,12 +11,9 @@ import javax.persistence.CascadeType;
 import cc.mallet.pipe.iterator.JsonIterator;
 import cc.mallet.topics.PancakeTopicInferencer;
 import com.avaje.ebean.Ebean;
-import com.avaje.ebean.Page;
 import com.avaje.ebean.RawSql;
 import com.avaje.ebean.RawSqlBuilder;
-import com.sun.tools.javac.resources.legacy;
 import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.node.DecimalNode;
 import play.db.ebean.Model;
 
 import cc.mallet.topics.TopicAssignment;
@@ -189,7 +186,6 @@ public class TopicModel extends Model {
 
             ArrayList<Topic> topicList = new ArrayList<Topic>();
             ArrayList<Document> docList = new ArrayList<Document>();
-            ArrayList<DocumentTopic> associationList = new ArrayList<DocumentTopic>();
 
             // create topics
             Object[][] topicWords = malletTopicModel.getTopWords(40);
@@ -223,10 +219,6 @@ public class TopicModel extends Model {
                 for(int topicIndex=0; topicIndex<this.numTopics; topicIndex++) {
                     Topic topic = topicList.get(topicIndex);
                     double weight = docWeights[docIndex][topicIndex];
-                    // save the weight
-                    DocumentTopic association = new DocumentTopic(weight, doc, topic);
-                    associationList.add(association);
-
                 }
                 documents.add(doc);
                 docList.add(doc);
@@ -236,7 +228,6 @@ public class TopicModel extends Model {
 
             Ebean.save(this);
             Ebean.save(topics);
-            Ebean.save(associationList);
 
             Ebean.commitTransaction();
 
@@ -384,6 +375,7 @@ public class TopicModel extends Model {
                 BigDecimal roundedUp = new BigDecimal(proportion * maxRecommendations).setScale(0, BigDecimal.ROUND_HALF_UP);
                 int maxNumberPerTopic = roundedUp.intValue();
 
+                /*
                 // obtain recommendations
                 String sql
                         = "SELECT d.id, d.url, dt.weight FROM smarts_document d, smarts_document_topic dt, smarts_topic t"
@@ -413,6 +405,7 @@ public class TopicModel extends Model {
                 Topic topic = topics.get(topicNumber);
                 docTopicWords.add(topic.getWordSample());
                 docTopicWeights.add(String.format("topic #%d match: %.2f%%", topicNumber, topicWeight));
+                */
             }
             inferredWords.put((String)distData.get(0), docTopicWords);
             distributionWeights.put((String) distData.get(0), docTopicWeights);
