@@ -164,7 +164,7 @@ public class TopicModel extends Model {
         malletTopicModel.setOptimizeInterval(100);
         malletTopicModel.setBurninPeriod(10);
         malletTopicModel.setSymmetricAlpha(false);
-        malletTopicModel.setNumThreads(8);
+        malletTopicModel.setNumThreads(4);
 
         malletTopicModel.estimate();
     }
@@ -185,7 +185,6 @@ public class TopicModel extends Model {
             inferencer = baos.toByteArray();
 
             ArrayList<Topic> topicList = new ArrayList<Topic>();
-            ArrayList<Document> docList = new ArrayList<Document>();
 
             // create topics
             Object[][] topicWords = malletTopicModel.getTopWords(40);
@@ -221,13 +220,13 @@ public class TopicModel extends Model {
                     double weight = docWeights[docIndex][topicIndex];
                 }
                 documents.add(doc);
-                docList.add(doc);
                 getDocuments().add(doc);
 
             }
 
             Ebean.save(this);
             Ebean.save(topics);
+            Ebean.save(documents);
 
             Ebean.commitTransaction();
 
@@ -333,8 +332,6 @@ public class TopicModel extends Model {
         List<Topic> topics = Topic.find.where().eq("topic_model_id", getId()).orderBy("number ASC").findList();
 
         List<List> orderedDistributions = inferencer.inferDistributions(instances, malletTopicModel.numIterations, 10, malletTopicModel.burninPeriod, 0.0, maxTopics);
-
-        System.out.println(orderedDistributions);
 
         // output containers
         List output = new ArrayList(2);

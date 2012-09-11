@@ -87,7 +87,7 @@ public class QueryPageController extends Controller {
         F.Promise<WS.Response> diffbotQuery;
 
         try {
-            diffbotQuery = WS.url(diffbotUrl).setQueryParameter("token", "xxx").setQueryParameter("url", query.urlInput).get();
+            diffbotQuery = WS.url(diffbotUrl).setQueryParameter("token", "c003ca116eeff8f48bf871e2263a34ba").setQueryParameter("url", query.urlInput).get();
         } catch (Exception e) {
             return badRequest("please enter a valid url");
         }

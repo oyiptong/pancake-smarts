@@ -116,6 +116,11 @@
         <SOURCES />
       </library>
     </orderEntry>
+    <orderEntry type="library" name="guava-13.0" level="project" />
+    <orderEntry type="library" name="Jama-1.0.2" level="project" />
+    <orderEntry type="library" name="guava-11.0.2" level="project" />
+    <orderEntry type="library" name="guava-13.0.1" level="project" />
+    <orderEntry type="library" name="crinch-dist-0.7.1" level="project" />
   </component>
 </module>
 
