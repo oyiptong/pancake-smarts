@@ -13,7 +13,18 @@ import cc.mallet.topics.PancakeTopicInferencer;
 import com.avaje.ebean.Ebean;
 import com.avaje.ebean.RawSql;
 import com.avaje.ebean.RawSqlBuilder;
+import org.apache.commons.lang.ArrayUtils;
 import org.codehaus.jackson.JsonNode;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.Client;
+
+import static org.elasticsearch.index.query.FilterBuilders.termFilter;
+import static org.elasticsearch.index.query.QueryBuilders.fuzzyQuery;
+import static org.elasticsearch.index.query.QueryBuilders.filteredQuery;
+import static org.elasticsearch.index.query.FilterBuilders.notFilter;
+
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHits;
 import play.db.ebean.Model;
 
 import cc.mallet.topics.TopicAssignment;
@@ -215,10 +226,6 @@ public class TopicModel extends Model {
                 String docName = (String) docAssignment.instance.getName();
                 Document doc = new Document(docName, docWeights[docIndex]);
 
-                for(int topicIndex=0; topicIndex<this.numTopics; topicIndex++) {
-                    Topic topic = topicList.get(topicIndex);
-                    double weight = docWeights[docIndex][topicIndex];
-                }
                 documents.add(doc);
                 getDocuments().add(doc);
 
@@ -226,7 +233,11 @@ public class TopicModel extends Model {
 
             Ebean.save(this);
             Ebean.save(topics);
-            Ebean.save(documents);
+
+            // loop to save so the save hook is called
+            for(Document doc : documents) {
+                doc.save();
+            }
 
             Ebean.commitTransaction();
 
@@ -261,39 +272,6 @@ public class TopicModel extends Model {
 
     }
 
-    /*
-    public Map<String, List<Topic>> infer(JsonNode jsonData) throws ClassNotFoundException, IOException
-    {
-
-        int maxTopics = 5;
-        PancakeTopicInferencer inferencer = malletTopicModel.getInferencer();
-        InstanceList instances = getInferenceVectors(jsonData);
-
-        List<Topic> topics = Topic.find.where().eq("topic_model_id", getId()).orderBy("number ASC").findList();
-
-        List<List> distributions = inferencer.inferDistributions(instances, malletTopicModel.numIterations, 10, malletTopicModel.burninPeriod, 0.0, maxTopics);
-
-        Map<String, List<Topic>> output = new HashMap<String, List<Topic>>();
-
-        for(int docIndex=0; docIndex < distributions.size(); docIndex++)
-        {
-            List docData = distributions.get(docIndex);
-            List<List> topicDist = (List<List>) docData.get(1);
-
-            List<Topic> docTopics = new ArrayList<Topic>();
-            for(int topicIndex=0; topicIndex < maxTopics; topicIndex++)
-            {
-                List topicData = topicDist.get(topicIndex);
-                int topicId = ((Integer) topicData.get(0)).intValue();
-                Topic topic = topics.get(topicId);
-                docTopics.add(topic);
-            }
-            output.put((String )docData.get(0), docTopics);
-        }
-
-        return output;
-    } */
-
     public Map<String, List<String>> inferString(JsonNode jsonData, int maxTopics) throws ClassNotFoundException, IOException
     {
         PancakeTopicInferencer inferencer = malletTopicModel.getInferencer();
@@ -301,7 +279,7 @@ public class TopicModel extends Model {
 
         List<Topic> topics = Topic.find.where().eq("topic_model_id", getId()).orderBy("number ASC").findList();
 
-        List<List> distributions = inferencer.inferDistributions(instances, malletTopicModel.numIterations, 10, malletTopicModel.burninPeriod, 0.0, maxTopics);
+        List<List> distributions = inferencer.inferSortedDistributions(instances, malletTopicModel.numIterations, 10, malletTopicModel.burninPeriod, 0.0, maxTopics);
 
         Map<String, List<String>> output = new HashMap<String, List<String>>();
 
@@ -324,93 +302,88 @@ public class TopicModel extends Model {
         return output;
     }
 
-    public List recommend(JsonNode jsonData, int maxRecommendations, int maxTopics) throws ClassNotFoundException, IOException
+    public List recommend(JsonNode jsonData, int maxRecommendations, int maxTopics) throws ClassNotFoundException, IOException, InterruptedException
     {
         PancakeTopicInferencer inferencer = malletTopicModel.getInferencer();
         InstanceList instances = getInferenceVectors(jsonData);
 
-        List<Topic> topics = Topic.find.where().eq("topic_model_id", getId()).orderBy("number ASC").findList();
+        List<List> distributions = inferencer.inferDistributions(instances, malletTopicModel.numIterations, 10, malletTopicModel.burninPeriod, 0.0);
 
-        List<List> orderedDistributions = inferencer.inferDistributions(instances, malletTopicModel.numIterations, 10, malletTopicModel.burninPeriod, 0.0, maxTopics);
+        List<List> orderedDistributions = inferencer.inferSortedDistributions(instances, malletTopicModel.numIterations, 10, malletTopicModel.burninPeriod, 0.0, maxTopics);
 
         // output containers
         List output = new ArrayList(2);
         Map<String, List<String>> inferredWords = new HashMap<String, List<String>>();
         HashMap<String, List<String>> distributionWeights = new HashMap<String, List<String>>();
         List<String> recommendations = new ArrayList<String>();
-        List<String> recommendationWeights = new ArrayList<String>();
         Set<String> allRecommendations = new HashSet<String>();
 
+        // for each document
         for(int distIndex=0; distIndex < orderedDistributions.size(); distIndex++)
         {
-            List distData = orderedDistributions.get(distIndex);
-            List<List> topicDist = (List<List>) distData.get(1);
+            List topData = orderedDistributions.get(distIndex);
+            List<List> topicDist = (List<List>) topData.get(1);
 
-
-            // calculate total weight per topic for recommendation proportions per topic
-            // topics are already sorted
-            double totalWeight = 0;
-            for (int topicIndex=0; topicIndex < maxTopics; topicIndex++)
-            {
-                List topicData = topicDist.get(topicIndex);
-                totalWeight += ((Double) topicData.get(1)).doubleValue();
-            }
-
-            // obtain topics and recommendations
+            // obtain textual topic distribution info
             List<String> docTopicWords = new ArrayList<String>();
             List<String> docTopicWeights = new ArrayList<String>();
-
             for(int topicIndex=0; topicIndex < maxTopics; topicIndex++)
             {
+                // obtain textual topic distribution info
                 List topicData = topicDist.get(topicIndex);
                 int topicNumber = ((Integer) topicData.get(0)).intValue();
-
-
-                // find out how many recommendations to fetch
                 double topicWeight = ((Double) topicData.get(1)).doubleValue();
-                double proportion = topicWeight / totalWeight;
-                BigDecimal roundedUp = new BigDecimal(proportion * maxRecommendations).setScale(0, BigDecimal.ROUND_HALF_UP);
-                int maxNumberPerTopic = roundedUp.intValue();
-
-                /*
-                // obtain recommendations
-                String sql
-                        = "SELECT d.id, d.url, dt.weight FROM smarts_document d, smarts_document_topic dt, smarts_topic t"
-                        + " WHERE dt.topic_id = t.id"
-                        + " AND t.number = "+ topicNumber
-                        + " AND d.topic_model_id = " + id
-                        + " AND dt.document_id = d.id"
-                        + " ORDER BY dt.weight DESC"
-                        + " LIMIT " + maxNumberPerTopic;
-
-                RawSql rawSql = RawSqlBuilder
-                        .parse(sql)
-                        .columnMapping("d.id", "id")
-                        .columnMapping("d.url", "url")
-                        .columnMapping("dt.weight", "weight")
-                        .create();
-
-                List<Document> topicRecommendations = Ebean.find(Document.class).setRawSql(rawSql).findList();
-                for(Document doc : topicRecommendations) {
-                    if(!allRecommendations.contains(doc.getUrl())) {
-                        recommendations.add(doc.getUrl());
-                        allRecommendations.add(doc.getUrl());
-                        recommendationWeights.add(String.format("topic: %d match with topic: %.2f%%", topicNumber, doc.getWeight()));
-                    }
-                }
 
                 Topic topic = topics.get(topicNumber);
                 docTopicWords.add(topic.getWordSample());
                 docTopicWeights.add(String.format("topic #%d match: %.2f%%", topicNumber, topicWeight));
-                */
             }
-            inferredWords.put((String)distData.get(0), docTopicWords);
-            distributionWeights.put((String) distData.get(0), docTopicWeights);
+            inferredWords.put((String)topData.get(0), docTopicWords);
+            distributionWeights.put((String) topData.get(0), docTopicWeights);
+
+            // obtain recommendations
+            List allDistData = distributions.get(distIndex);
+
+            //double[] allWeights = ArrayUtils.toPrimitive((Double[]) allDistData.get(1));
+            double[] allWeights = (double[]) allDistData.get(1);
+
+            // 100 dimensions to match projection indexing
+            String signature = RandomProjection.projectString(allWeights, 100);
+
+            ElasticSearch es = ElasticSearch.getElasticSearch();
+            Client esClient = es.getClient();
+
+            SearchResponse response = esClient.prepareSearch("pancake-smarts")
+                .setTypes("document")
+                .setQuery(
+                        fuzzyQuery("features_bits", signature).minSimilarity((float) 0.6)
+                )
+                .setFrom(0).setSize(maxRecommendations)
+                .execute()
+                .actionGet();
+
+            SearchHits hits = response.getHits();
+            SearchHit[] hitArray = hits.getHits();
+
+            long[] hitIds = new long[maxRecommendations];
+
+            for(int hitIndex = 0; hitIndex < hitArray.length; hitIndex++)
+            {
+                SearchHit hit = hitArray[hitIndex];
+                hitIds[hitIndex] = Long.parseLong(hit.getId());
+            }
+
+            List<Document> recommendedDocs = Ebean.find(Document.class).where().in("id", ArrayUtils.toObject(hitIds)).findList();
+            for(Document doc : recommendedDocs) {
+                if(!allRecommendations.contains(doc.getUrl())) {
+                    recommendations.add(doc.getUrl());
+                    allRecommendations.add(doc.getUrl());
+                }
+            }
         }
         output.add(inferredWords);
         output.add(recommendations);
         output.add(distributionWeights);
-        output.add(recommendationWeights);
         return output;
     }
 }

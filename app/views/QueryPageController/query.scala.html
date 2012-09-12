@@ -60,7 +60,7 @@
                 <ol>
                     @for((recco, index) <- recommendations.zipWithIndex) {
                         <li>
-                            @recommendationWeights(index) <a href="@recco">@recco</a>
+                            @* @recommendationWeights(index) *@<a href="@recco">@recco</a>
                         </li>
                     }
                 </ol>

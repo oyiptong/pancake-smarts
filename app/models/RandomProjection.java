@@ -91,6 +91,25 @@ public class RandomProjection {
         return bs;
     }
 
+    public static String projectString(double[] input, int dimensions)
+    {
+        double[] projection = project(input, dimensions);
+
+        StringBuilder sb = new StringBuilder();
+        for(int i = 0; i < projection.length; i++)
+        {
+            if(projection[i] > 0)
+            {
+                sb.append("1");
+            } else
+            {
+                sb.append("0");
+            }
+        }
+
+        return sb.toString();
+    }
+
     public static double[] randomRow(int key, int dimensions, int randomSeed) {
         double[] values = new double[dimensions];
 

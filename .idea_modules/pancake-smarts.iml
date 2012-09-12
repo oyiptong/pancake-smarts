@@ -10,6 +10,7 @@
       <sourceFolder url="file://$MODULE_DIR$/../conf" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/../test" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/../test/resources" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/.." isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/../target/scala-2.9.1/cache" />
       <excludeFolder url="file://$MODULE_DIR$/../target/scala-2.9.1/classes" />
       <excludeFolder url="file://$MODULE_DIR$/../target/scala-2.9.1/classes_managed" />
@@ -116,11 +117,7 @@
         <SOURCES />
       </library>
     </orderEntry>
-    <orderEntry type="library" name="guava-13.0" level="project" />
-    <orderEntry type="library" name="Jama-1.0.2" level="project" />
-    <orderEntry type="library" name="guava-11.0.2" level="project" />
-    <orderEntry type="library" name="guava-13.0.1" level="project" />
-    <orderEntry type="library" name="crinch-dist-0.7.1" level="project" />
+    <orderEntry type="library" name="elasticsearch-0.19.9" level="project" />
   </component>
 </module>
 

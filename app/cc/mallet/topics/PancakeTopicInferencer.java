@@ -28,7 +28,7 @@ public class PancakeTopicInferencer extends TopicInferencer {
         super(typeTopicCounts, tokensPerTopic, alphabet, alpha, beta, betaSum);
     }
 
-    public List<List> inferDistributions(InstanceList instances, int numIterations, int thinning, int burnIn, double threshold, int max){
+    public List<List> inferSortedDistributions(InstanceList instances, int numIterations, int thinning, int burnIn, double threshold, int max){
 
         IDSorter[] sortedTopics = new IDSorter[ numTopics ];
         for (int topic = 0; topic < numTopics; topic++) {
@@ -66,6 +66,24 @@ public class PancakeTopicInferencer extends TopicInferencer {
             }
             document.add(instance.getName());
             document.add(topTopics);
+            output.add(document);
+        }
+        return output;
+    }
+
+    public List<List> inferDistributions(InstanceList instances, int numIterations, int thinning, int burnIn, double threshold){
+
+        ArrayList<List> output = new ArrayList<List>();
+
+        for (Instance instance: instances) {
+            ArrayList document = new ArrayList();
+
+            double[] topicDistribution =
+                    getSampledDistribution(instance, numIterations, thinning, burnIn);
+
+
+            document.add(instance.getName());
+            document.add(topicDistribution);
             output.add(document);
         }
         return output;
