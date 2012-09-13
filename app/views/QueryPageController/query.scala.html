@@ -1,4 +1,4 @@
-@(queryForm : Form[InferenceQuery], modelName : String, inferredWords : Map[String, List[String]], recommendations : List[String], distributionWeights : Map[String, List[String]], recommendationWeights : List[String])
+@(queryForm : Form[InferenceQuery], modelName : String, inferredWords : Map[String, List[String]], recommendations : List[String], distributionWeights : Map[String, List[String]], recommendationDesc : List[String], queryBitText : List[String])
 
 @import helper._
 @import helper.twitterBootstrap._
@@ -39,7 +39,7 @@
             <div id="results">
                 @for(entry <- inferredWords.entrySet()) {
                     <div class="entry">
-                        <span>Matched topics for <strong>@entry.getKey()</strong></span>
+                        <span>Matched topics for <strong>@entry.getKey()</strong> signature : @queryBitText.get(0)</span>
                         <ol>
                             @for((topicWords, index) <- entry.getValue().zipWithIndex) {
                                 <li>
@@ -60,7 +60,7 @@
                 <ol>
                     @for((recco, index) <- recommendations.zipWithIndex) {
                         <li>
-                            @* @recommendationWeights(index) *@<a href="@recco">@recco</a>
+                            @recommendationDesc(index) <a href="@recco">@recco</a>
                         </li>
                     }
                 </ol>

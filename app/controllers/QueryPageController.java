@@ -51,7 +51,8 @@ public class QueryPageController extends Controller {
         List<String> recommendations = new ArrayList<String>(0);
         HashMap<String, List<String>> distributionWeights = new HashMap<String, List<String>>();
         List<String> recommendationWeights = new ArrayList<String>(0);
-        return ok(views.html.QueryPageController.query.render(queryForm, modelName, inferredWords, recommendations, distributionWeights, recommendationWeights));
+        List<String> queryBitText = new ArrayList<String>(0);
+        return ok(views.html.QueryPageController.query.render(queryForm, modelName, inferredWords, recommendations, distributionWeights, recommendationWeights, queryBitText));
     }
 
     public static Result queryPost(String modelName) {
@@ -59,8 +60,9 @@ public class QueryPageController extends Controller {
 
         Map inferredWords;
         List<String> recommendations;
-        HashMap<String, List<String>> distributionWeights;
-        List<String> recommendationWeights;
+        HashMap<String, List<String>> distributionDesc;
+        List<String> recommendationDesc;
+        List<String> queryBitText;
 
         Form<InferenceQuery> inputForm = queryForm.bindFromRequest();
         if(inputForm.hasErrors())
@@ -68,9 +70,9 @@ public class QueryPageController extends Controller {
             System.out.println(inputForm.errors());
             inferredWords = new HashMap();
             recommendations = new ArrayList<String>(0);
-            distributionWeights = new HashMap<String, List<String>>();
-            recommendationWeights = new ArrayList<String>();
-            return badRequest(views.html.QueryPageController.query.render(queryForm, modelName, inferredWords, recommendations, distributionWeights, recommendationWeights));
+            distributionDesc = new HashMap<String, List<String>>();
+            recommendationDesc = new ArrayList<String>();
+            return badRequest(views.html.QueryPageController.query.render(queryForm, modelName, inferredWords, recommendations, distributionDesc, recommendationDesc, new ArrayList<String>()));
         }
         InferenceQuery query = inputForm.get();
 
@@ -142,20 +144,22 @@ public class QueryPageController extends Controller {
                 recommendations = (List<String>) rec.get(1);
                 // remove the document itself from recommendations if it exists
                 inferredWords.remove(recommendations);
-                distributionWeights = (HashMap<String, List<String>>) rec.get(2);
-                recommendationWeights = new ArrayList<String>(0);
+                distributionDesc = (HashMap<String, List<String>>) rec.get(2);
+                recommendationDesc = (List<String>) rec.get(3);
+                queryBitText = (List<String>) rec.get(4);
             } else
             {
                 inferredWords = topicModel.inferString(inputNode, maxTopics);
                 recommendations = new ArrayList<String>(0);
-                distributionWeights = new HashMap<String, List<String>>();
-                recommendationWeights = new ArrayList<String>(0);
+                distributionDesc = new HashMap<String, List<String>>();
+                recommendationDesc = new ArrayList<String>(0);
+                queryBitText = new ArrayList<String>(0);
             }
         } catch (Exception e)
         {
             e.printStackTrace();
             return internalServerError("error occurred during inference. Sorry");
         }
-        return ok(views.html.QueryPageController.query.render(queryForm, modelName, inferredWords, recommendations, distributionWeights, recommendationWeights));
+        return ok(views.html.QueryPageController.query.render(queryForm, modelName, inferredWords, recommendations, distributionDesc, recommendationDesc, queryBitText));
     }
 }

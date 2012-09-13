@@ -42,9 +42,6 @@ public class Document extends Model {
 
     private String url;
 
-    @Transient
-    private double weight;
-
     @Column(name="topic_distribution")
     private String topicDistribution;
 
@@ -71,7 +68,7 @@ public class Document extends Model {
         ObjectMapper mapper = new ObjectMapper();
         this.topicDistribution = mapper.writeValueAsString(topicDistribution);
         // 100 dimensions for random projections
-        BitSet bs = RandomProjection.projectBinaryBytes(topicDistribution, 100);
+        BitSet bs = RandomProjection.projectBinaryBytes(topicDistribution, 50);
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(baos);
@@ -81,7 +78,7 @@ public class Document extends Model {
 
         StringBuilder sb = new StringBuilder();
         StringBuilder sbBits = new StringBuilder();
-        for (int i = 0; i < 100; i++)
+        for (int i = 0; i < 50; i++)
         {
             if(bs.get(i) == true)
             {
@@ -99,20 +96,24 @@ public class Document extends Model {
 
     public static Finder<Long,Document> find = new Finder<Long,Document>(Long.class, Document.class);
 
-    public double getWeight()
-    {
-        return weight;
-    }
-
 
     public String getFeaturesText()
     {
         return featuresText;
     }
 
+    public String getFeaturesBitsText()
+    {
+        return featuresBitsText;
+    }
+
     public byte[] getFeaturesBits()
     {
         return featuresBits;
+    }
+
+    public String getTopicDistribution() {
+        return topicDistribution;
     }
 
     @Override
