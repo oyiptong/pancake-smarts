@@ -54,7 +54,7 @@ The data input is a gzipped file in the mallet input format as follows:
 
 > [URL] [GROUP_NAME] [TOKENS]
 
-Where TOKENS is a space-separated group of tokens.
+Where TOKENS is a space-separated group of tokens. GROUP_NAME has to be supplied, but will be ignored for now.
 
 This file can be sent to Smarts as follows:
 
