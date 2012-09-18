@@ -1,9 +1,5 @@
 package cc.mallet.topics;
-
-import cc.mallet.topics.ParallelTopicModel;
-import cc.mallet.topics.TopicAssignment;
 import cc.mallet.types.*;
-import cc.mallet.util.MalletLogger;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -11,10 +7,8 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.text.NumberFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
-import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
 /**

@@ -1,7 +1,6 @@
 package models;
 
 import java.io.*;
-import java.math.BigDecimal;
 import java.util.*;
 import java.util.regex.Pattern;
 import javax.persistence.*;
@@ -11,24 +10,18 @@ import javax.persistence.CascadeType;
 import cc.mallet.pipe.iterator.JsonIterator;
 import cc.mallet.topics.PancakeTopicInferencer;
 import com.avaje.ebean.Ebean;
-import com.avaje.ebean.RawSql;
-import com.avaje.ebean.RawSqlBuilder;
 import org.apache.commons.lang.ArrayUtils;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
 
-import static org.elasticsearch.index.query.FilterBuilders.termFilter;
 import static org.elasticsearch.index.query.QueryBuilders.fuzzyQuery;
-import static org.elasticsearch.index.query.QueryBuilders.filteredQuery;
-import static org.elasticsearch.index.query.FilterBuilders.notFilter;
-
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
+
 import play.db.ebean.Model;
 
-import cc.mallet.topics.TopicAssignment;
 import cc.mallet.topics.PersistentParallelTopicModel;
 import cc.mallet.util.CharSequenceLexer;
 import cc.mallet.types.InstanceList;
@@ -216,7 +209,7 @@ public class TopicModel extends Model {
             PancakeTopicInferencer inferencer = malletTopicModel.getInferencer();
             InstanceList docVectors = getDocumentVectors();
 
-            // Only record the 10 most significant topics
+            // Only record the n most significant topics
             List<List> orderedDistributions = inferencer.inferSortedDistributions(docVectors, malletTopicModel.numIterations, 10, malletTopicModel.burninPeriod, 0.0, 5);
 
             for(int docIndex = 0 ; docIndex < orderedDistributions.size() ; docIndex++)
@@ -225,8 +218,6 @@ public class TopicModel extends Model {
                 String docName = (String) docData.get(0);
 
                 double[] docTopWeights = generateTopTopicWeightVector(docIndex, orderedDistributions);
-
-                //double[] docWeights = (double[]) docData.get(1);
                 Document doc = new Document(docName, docTopWeights);
 
                 documents.add(doc);
