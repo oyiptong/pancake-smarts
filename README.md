@@ -10,16 +10,17 @@ Pancake Smarts is an experiment to see if it is possible to implement a decent u
 Requirements:
 * a MySQL daemon (5.5 used in dev)
 * an ElasticSearch instance (0.19.9 used in dev)
-* a diffbot API key
+* a [diffbot](https://www.diffbot.com) API key
 * java 6+ (Oracle JDK 7 used in dev)
 
 Overview
 --------
 
 Pancake Smarts does three main things:
-1. Using [Mallet] (http://mallet.cs.umass.edu/)'s implementation of Latent Dirichlet Allocation, Smarts generates a topic model, which is persisted, along with the latent topics.
-2. Using the generated topic model, Smarts infers the topic distribution of each document in the training set. The top N topic distributions are used to generate a hash code, using Random Projections. That data is also persisted and indexed in ElasticSearch.
-3. When a url is entered in a query form for the model, its topic distribution is inferred and a hash code generated. This hash code is used to find similar documents.
+
+1.  Using [Mallet] (http://mallet.cs.umass.edu/)'s implementation of Latent Dirichlet Allocation, Smarts generates a topic model, which is persisted, along with the latent topics.
+2.  Using the generated topic model, Smarts infers the topic distribution of each document in the training set. The top N topic distributions are used to generate a hash code, using Random Projections. That data is also persisted and indexed in ElasticSearch.
+3.  When a url is entered in a query form for the model, its topic distribution is inferred and a hash code generated. This hash code is used to find similar documents.
 
 Results
 -------
@@ -32,6 +33,7 @@ Possible Improvements
 ---------------------
 
 Pancake Smarts can be improved by:
+
 * Using an internal page scraper and content extraction implementation
 * The LDA implementation requires all the data to remain in memory. An online version can be used.
 * Moreover, the LDA modelling can be distributed
