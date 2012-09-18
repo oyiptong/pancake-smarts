@@ -8,10 +8,11 @@ Pancake Smarts is an experiment to see if it is possible to implement a decent u
  The algorithms used are Latent Dirichlet Allocation and Random Projections.
 
 Requirements:
+* Play! Framework (2.0.3 used in dev)
 * a MySQL daemon (5.5 used in dev)
 * an ElasticSearch instance (0.19.9 used in dev)
 * a [diffbot](https://www.diffbot.com) API key
-* java 6+ (Oracle JDK 7 used in dev)
+* a java runtime (Oracle JDK 7 used in dev)
 
 Overview
 --------
@@ -68,7 +69,7 @@ Pancake Smarts was developed using:
 * [Play Framework 2.0.3] (http://www.playframework.org/), [Apache License 2.0] (http://www.apache.org/licenses/LICENSE-2.0.html)
 * [Mallet 2.0.7] (http://mallet.cs.umass.edu/), [CPL License] (http://opensource.org/licenses/cpl1.0.php)
 * Part of [Google Guava 13.0.1] (http://code.google.com/p/guava-libraries/), for its murmur3 implementation, [Apache License 2.0] (http://www.apache.org/licenses/LICENSE-2.0.html)
-* Code adapted from [Joseph Turian] (https://github.com/turian/pyrandomprojection)
+* Code adapted from [Joseph Turian]'s (https://github.com/turian/pyrandomprojection) Random Projection implementation
 
 Thanks in no particular order to:
 * [Zach Aysan] (http://zachaysan.tumblr.com/)
