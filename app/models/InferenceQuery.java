@@ -29,4 +29,9 @@ public class InferenceQuery {
     {
 
     }
+
+    public String getUrlInput()
+    {
+        return urlInput;
+    }
 }

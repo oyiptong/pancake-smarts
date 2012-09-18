@@ -1,4 +1,4 @@
-@(queryForm : Form[InferenceQuery], modelName : String, inferredWords : Map[String, List[String]], recommendations : List[String], distributionWeights : Map[String, List[String]], recommendationDesc : List[String], queryBitText : List[String])
+@(queryForm : Form[InferenceQuery], modelName : String, inferredWords : List[String], recommendations : List[String], distributionDesc : List[String])
 
 @import helper._
 @import helper.twitterBootstrap._
@@ -37,20 +37,18 @@
 
         @if(inferredWords.size() > 0) {
             <div id="results">
-                @for(entry <- inferredWords.entrySet()) {
-                    <div class="entry">
-                        <span>Matched topics for <strong>@entry.getKey()</strong> signature : @queryBitText.get(0)</span>
-                        <ol>
-                            @for((topicWords, index) <- entry.getValue().zipWithIndex) {
-                                <li>
-                                <strong>
-                                    @distributionWeights(entry.getKey())(index)
-                                </strong>: @topicWords
-                                </li>
-                            }
-                        </ol>
-                    </div>
-                }
+                <div class="entry">
+                    <span>Matched topics for <strong>@queryForm.field("urlInput").value()</strong></span>
+                    <ol>
+                        @for((topicWords, index) <- inferredWords.zipWithIndex) {
+                            <li>
+                            <strong>
+                                @distributionDesc(index)
+                            </strong>: @topicWords
+                            </li>
+                        }
+                    </ol>
+                </div>
             </div>
         }
 
@@ -60,7 +58,7 @@
                 <ol>
                     @for((recco, index) <- recommendations.zipWithIndex) {
                         <li>
-                            @recommendationDesc(index) <a href="@recco">@recco</a>
+                            <a href="@recco">@recco</a>
                         </li>
                     }
                 </ol>

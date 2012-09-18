@@ -2,7 +2,6 @@ package controllers;
 
 import models.TextInputCleaner;
 import models.TopicModel;
-import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
 import play.cache.Cache;
@@ -13,8 +12,6 @@ import play.mvc.Controller;
 import play.mvc.Result;
 import models.InferenceQuery;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.*;
 
 
@@ -47,32 +44,27 @@ public class QueryPageController extends Controller {
             }
         }
 
-        Map inferredWords = new HashMap<String, List<String>>();
+        List<String> inferredWords = new ArrayList<String>(0);
         List<String> recommendations = new ArrayList<String>(0);
-        HashMap<String, List<String>> distributionWeights = new HashMap<String, List<String>>();
-        List<String> recommendationWeights = new ArrayList<String>(0);
-        List<String> queryBitText = new ArrayList<String>(0);
-        return ok(views.html.QueryPageController.query.render(queryForm, modelName, inferredWords, recommendations, distributionWeights, recommendationWeights, queryBitText));
+        List<String> distributionWeights = new ArrayList<String>();
+        return ok(views.html.QueryPageController.query.render(queryForm, modelName, inferredWords, recommendations, distributionWeights));
     }
 
     public static Result queryPost(String modelName) {
         response().setContentType("text/html");
 
-        Map inferredWords;
+        List<String> inferredWords;
         List<String> recommendations;
-        HashMap<String, List<String>> distributionDesc;
-        List<String> recommendationDesc;
-        List<String> queryBitText;
+        List<String> distributionDesc;
 
         Form<InferenceQuery> inputForm = queryForm.bindFromRequest();
         if(inputForm.hasErrors())
         {
             System.out.println(inputForm.errors());
-            inferredWords = new HashMap();
+            inferredWords = new ArrayList<String>(0);
             recommendations = new ArrayList<String>(0);
-            distributionDesc = new HashMap<String, List<String>>();
-            recommendationDesc = new ArrayList<String>();
-            return badRequest(views.html.QueryPageController.query.render(queryForm, modelName, inferredWords, recommendations, distributionDesc, recommendationDesc, new ArrayList<String>()));
+            distributionDesc = new ArrayList<String>(0);
+            return badRequest(views.html.QueryPageController.query.render(inputForm, modelName, inferredWords, recommendations, distributionDesc));
         }
         InferenceQuery query = inputForm.get();
 
@@ -123,8 +115,6 @@ public class QueryPageController extends Controller {
         if (!respJson.has("text")) {
             return badRequest("the supplied url does not contain text");
         }
-        String rawText = respJson.get("text").getTextValue();
-
         List input = new ArrayList();
         Map doc = new HashMap();
         doc.put("name", respJson.get("url").getTextValue());
@@ -140,26 +130,22 @@ public class QueryPageController extends Controller {
             if (maxRecommendations > 0)
             {
                 List rec = topicModel.recommend(inputNode, maxTopics, maxRecommendations);
-                inferredWords = (Map) rec.get(0);
+                inferredWords = (List<String>) rec.get(0);
                 recommendations = (List<String>) rec.get(1);
                 // remove the document itself from recommendations if it exists
                 inferredWords.remove(recommendations);
-                distributionDesc = (HashMap<String, List<String>>) rec.get(2);
-                recommendationDesc = (List<String>) rec.get(3);
-                queryBitText = (List<String>) rec.get(4);
+                distributionDesc = (List<String>) rec.get(2);
             } else
             {
-                inferredWords = topicModel.inferString(inputNode, maxTopics);
+                inferredWords = topicModel.inferString(inputNode, maxTopics).get(inputForm.field("urlInput"));
                 recommendations = new ArrayList<String>(0);
-                distributionDesc = new HashMap<String, List<String>>();
-                recommendationDesc = new ArrayList<String>(0);
-                queryBitText = new ArrayList<String>(0);
+                distributionDesc = new ArrayList<String>(0);
             }
         } catch (Exception e)
         {
             e.printStackTrace();
             return internalServerError("error occurred during inference. Sorry");
         }
-        return ok(views.html.QueryPageController.query.render(queryForm, modelName, inferredWords, recommendations, distributionDesc, recommendationDesc, queryBitText));
+        return ok(views.html.QueryPageController.query.render(inputForm, modelName, inferredWords, recommendations, distributionDesc));
     }
 }
