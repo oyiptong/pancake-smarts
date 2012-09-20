@@ -11,7 +11,9 @@ import org.codehaus.jackson.map.ObjectMapper;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.Client;
+import play.Configuration;
 import play.Logger;
+import play.Play;
 import play.db.ebean.Model;
 
 import javax.persistence.*;
@@ -73,8 +75,12 @@ public class Document extends Model {
 
         ObjectMapper mapper = new ObjectMapper();
         this.topicDistribution = mapper.writeValueAsString(topicDistribution);
+
+        Configuration config = Play.application().configuration();
+        int numProjectionBits = config.getInt("smarts.lsh.numBits");
+
         // 100 dimensions for random projections
-        BitSet bs = RandomProjection.projectBinaryBytes(topicDistribution, 50);
+        BitSet bs = RandomProjection.projectBinaryBytes(topicDistribution, numProjectionBits);
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(baos);
@@ -84,7 +90,7 @@ public class Document extends Model {
 
         StringBuilder sb = new StringBuilder();
         StringBuilder sbBits = new StringBuilder();
-        for (int i = 0; i < 50; i++)
+        for (int i = 0; i < numProjectionBits; i++)
         {
             if(bs.get(i) == true)
             {
@@ -136,6 +142,7 @@ public class Document extends Model {
                             .startObject()
                             .field("features_text", this.featuresText)
                             .field("features_bits", this.featuresBitsText)
+                            .field("topic_model_id", this.topicModel.getId())
                             .endObject()
                     )
                     .execute().actionGet();

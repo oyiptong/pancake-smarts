@@ -61,7 +61,7 @@ public class TopicModelController extends Controller {
 
         try {
             try {
-                TopicModel model = new TopicModel(modelName, numTopics.intValue(), 1/150.0, 1/150.0, dataReader);
+                TopicModel model = new TopicModel(modelName, numTopics.intValue(), 1/numTopics, 1/numTopics, dataReader);
                 model.saveObjectGraph();
 
                 output.put("status", "OK");
@@ -95,6 +95,8 @@ public class TopicModelController extends Controller {
             Ebean.delete(model);
 
             Ebean.commitTransaction();
+
+            //TODO: delete in ES
 
             output.put("status", "OK");
             return ok(output);

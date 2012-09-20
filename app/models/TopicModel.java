@@ -22,10 +22,14 @@ import org.codehaus.jackson.map.ObjectMapper;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
 
+import static org.elasticsearch.index.query.QueryBuilders.filteredQuery;
 import static org.elasticsearch.index.query.QueryBuilders.fuzzyQuery;
+import static org.elasticsearch.index.query.FilterBuilders.termFilter;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 
+import play.Configuration;
+import play.Play;
 import play.db.ebean.Model;
 
 import cc.mallet.topics.PersistentParallelTopicModel;
@@ -162,20 +166,22 @@ public class TopicModel extends Model {
         oos.close();
         this.featureSequence = baos.toByteArray();
 
+        Configuration config = Play.application().configuration();
         // train model
         malletTopicModel = new PersistentParallelTopicModel(this.numTopics, this.alpha, this.beta);
         malletTopicModel.addInstances(instances);
-        malletTopicModel.setNumIterations(1000);
-        malletTopicModel.setOptimizeInterval(100);
-        malletTopicModel.setBurninPeriod(10);
-        malletTopicModel.setSymmetricAlpha(false);
-        malletTopicModel.setNumThreads(8);
+        malletTopicModel.setNumIterations(config.getInt("smarts.topicModel.numIterations"));
+        malletTopicModel.setOptimizeInterval(config.getInt("smarts.topicModel.optimizeIntervals"));
+        malletTopicModel.setBurninPeriod(config.getInt("smarts.topicModel.burnInPeriod"));
+        malletTopicModel.setSymmetricAlpha(config.getBoolean("smarts.topicModel.numIterations"));
+        malletTopicModel.setNumThreads(config.getInt("smarts.topicModel.numThreads"));
 
         malletTopicModel.estimate();
     }
 
     public void saveObjectGraph() throws Exception {
         Ebean.beginTransaction();
+        Configuration config = Play.application().configuration();
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             ObjectOutputStream oos = new ObjectOutputStream(baos);
@@ -192,7 +198,7 @@ public class TopicModel extends Model {
             ArrayList<Topic> topicList = new ArrayList<Topic>();
 
             // create topics
-            Object[][] topicWords = malletTopicModel.getTopWords(40);
+            Object[][] topicWords = malletTopicModel.getTopWords(config.getInt("smarts.topicModel.numTopWords"));
             for(int topicNum = 0; topicNum < this.numTopics; topicNum++) {
                 StringBuilder wordList = new StringBuilder();
                 Object[] words = topicWords[topicNum];
@@ -216,7 +222,13 @@ public class TopicModel extends Model {
             InstanceList docVectors = getDocumentVectors();
 
             // Only record the n most significant topics
-            List<List> orderedDistributions = inferencer.inferSortedDistributions(docVectors, malletTopicModel.numIterations, 10, malletTopicModel.burninPeriod, 0.0, 5);
+            List<List> orderedDistributions = inferencer.inferSortedDistributions(
+                    docVectors,
+                    config.getInt("smarts.inference.numIterations"),
+                    config.getInt("smarts.inference.thinning"),
+                    config.getInt("smarts.inference.burnInPeriod"),
+                    Double.parseDouble(config.getString("smarts.inference.threshold")),
+                    config.getInt("smarts.inference.numSignificantFeatures"));
 
             for(int docIndex = 0 ; docIndex < orderedDistributions.size() ; docIndex++)
             {
@@ -284,7 +296,15 @@ public class TopicModel extends Model {
 
         List<Topic> topics = Topic.find.where().eq("topic_model_id", getId()).orderBy("number ASC").findList();
 
-        List<List> distributions = inferencer.inferSortedDistributions(instances, malletTopicModel.numIterations, 10, malletTopicModel.burninPeriod, 0.0, maxTopics);
+        Configuration config = Play.application().configuration();
+
+        List<List> distributions = inferencer.inferSortedDistributions(
+                instances,
+                config.getInt("smarts.inference.numIterations"),
+                config.getInt("smarts.inference.thinning"),
+                config.getInt("smarts.inference.burnInPeriod"),
+                Double.parseDouble(config.getString("smarts.inference.threshold")),
+                maxTopics);
 
         Map<String, List<String>> output = new HashMap<String, List<String>>();
 
@@ -307,14 +327,27 @@ public class TopicModel extends Model {
         return output;
     }
 
-    public List recommend(JsonNode jsonData, int maxRecommendations, int maxTopics) throws ClassNotFoundException, IOException, InterruptedException
+    public List recommend(JsonNode jsonData, int maxTopics, int maxRecommendations) throws ClassNotFoundException, IOException, InterruptedException
     {
         PancakeTopicInferencer inferencer = malletTopicModel.getInferencer();
         InstanceList inferenceVectors = getInferenceVectors(jsonData);
 
-        List<List> distributions = inferencer.inferDistributions(inferenceVectors, malletTopicModel.numIterations, 10, malletTopicModel.burninPeriod, 0.0);
+        Configuration config = Play.application().configuration();
 
-        List<List> inferenceOrderedDistribution = inferencer.inferSortedDistributions(inferenceVectors, malletTopicModel.numIterations, 10, malletTopicModel.burninPeriod, 0.0, Math.max(maxTopics, 5));
+        List<List> distributions = inferencer.inferDistributions(
+                inferenceVectors,
+                config.getInt("smarts.inference.numIterations"),
+                config.getInt("smarts.inference.thinning"),
+                config.getInt("smarts.inference.burnInPeriod"),
+                Double.parseDouble(config.getString("smarts.inference.threshold")));
+
+        List<List> inferenceOrderedDistribution = inferencer.inferSortedDistributions(
+                inferenceVectors,
+                config.getInt("smarts.inference.numIterations"),
+                config.getInt("smarts.inference.thinning"),
+                config.getInt("smarts.inference.burnInPeriod"),
+                Double.parseDouble(config.getString("smarts.inference.threshold")),
+                Math.max(maxTopics, config.getInt("smarts.inference.numSignificantFeatures")));
 
         // output containers
         List output = new ArrayList(2);
@@ -351,11 +384,12 @@ public class TopicModel extends Model {
             ObjectMapper mapper = new ObjectMapper();
 
             // 100 dimensions to match projection indexing
-            String signature = RandomProjection.projectString(docTopWeights, 50);
+            String signature = RandomProjection.projectString(docTopWeights, config.getInt("smarts.lsh.numBits"));
 
             ElasticSearch es = ElasticSearch.getElasticSearch();
             Client esClient = es.getClient();
 
+            /*
             SearchResponse response = esClient.prepareSearch("pancake-smarts")
                 .setTypes("document")
                 .setQuery(
@@ -364,6 +398,18 @@ public class TopicModel extends Model {
                 .setFrom(0).setSize(maxRecommendations)
                 .execute()
                 .actionGet();
+            */
+            SearchResponse response = esClient.prepareSearch("pancake-smarts")
+                    .setTypes("document")
+                    .setQuery(
+                            filteredQuery(
+                                    fuzzyQuery("features_bits", signature).minSimilarity((float) 0.6),
+                                    termFilter("topic_model_id", this.getId())
+                            )
+                    )
+                    .setFrom(0).setSize(maxRecommendations)
+                    .execute()
+                    .actionGet();
 
             SearchHits hits = response.getHits();
             SearchHit[] hitArray = hits.getHits();

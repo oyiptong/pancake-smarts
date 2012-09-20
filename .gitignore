@@ -7,3 +7,4 @@ tmp
 dist
 .idea
 *.log.*
+conf/application.conf

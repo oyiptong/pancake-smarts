@@ -10,6 +10,8 @@ import models.TextInputCleaner;
 import models.TopicModel;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
+import play.Configuration;
+import play.Play;
 import play.cache.Cache;
 import play.data.Form;
 import play.libs.F;
@@ -17,6 +19,7 @@ import play.libs.WS;
 import play.mvc.Controller;
 import play.mvc.Result;
 import models.InferenceQuery;
+
 
 import java.util.*;
 
@@ -58,6 +61,7 @@ public class QueryPageController extends Controller {
 
     public static Result queryPost(String modelName) {
         response().setContentType("text/html");
+        Configuration config = Play.application().configuration();
 
         List<String> inferredWords;
         List<String> recommendations;
@@ -87,7 +91,7 @@ public class QueryPageController extends Controller {
         F.Promise<WS.Response> diffbotQuery;
 
         try {
-            diffbotQuery = WS.url(diffbotUrl).setQueryParameter("token", "xxx").setQueryParameter("url", query.urlInput).get();
+            diffbotQuery = WS.url(diffbotUrl).setQueryParameter("token", config.getString("smarts.diffbot.licenseKey")).setQueryParameter("url", query.urlInput).get();
         } catch (Exception e) {
             return badRequest("please enter a valid url");
         }
@@ -108,7 +112,7 @@ public class QueryPageController extends Controller {
                 return internalServerError("Internal Server Error. Sorry");
             }
         }
-        WS.Response resp = diffbotQuery.get(Long.valueOf(10000));
+        WS.Response resp = diffbotQuery.get(config.getMilliseconds("smarts.diffbot.timeout"));
         if (resp.getStatus() != 200)
         {
             System.out.println("diffbot status was: " + resp.getStatus());
