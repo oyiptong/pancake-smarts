@@ -173,7 +173,7 @@ public class TopicModel extends Model {
         malletTopicModel.setNumIterations(config.getInt("smarts.topicModel.numIterations"));
         malletTopicModel.setOptimizeInterval(config.getInt("smarts.topicModel.optimizeIntervals"));
         malletTopicModel.setBurninPeriod(config.getInt("smarts.topicModel.burnInPeriod"));
-        malletTopicModel.setSymmetricAlpha(config.getBoolean("smarts.topicModel.numIterations"));
+        malletTopicModel.setSymmetricAlpha(config.getBoolean("smarts.topicModel.symmetricAlpha"));
         malletTopicModel.setNumThreads(config.getInt("smarts.topicModel.numThreads"));
 
         malletTopicModel.estimate();

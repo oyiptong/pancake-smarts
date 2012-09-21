@@ -1,0 +1,12 @@
+{
+    "document" : {
+        "_timestamp" : {
+            "enabled" : false,
+        },
+        "properties" : {
+            "features_text" : {"type" : "string", "store" : "yes", "index_analyzer" : "whitespace", "search_analyzer" : "whitespace"},
+            "features_bits" : {"type" : "string", "store" : "yes", "index" : "not_analyzed"},
+            "topic_model_id" : {"type" : "integer"}
+        }
+    }
+}

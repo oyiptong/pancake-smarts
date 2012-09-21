@@ -1,0 +1,8 @@
+{
+    "__default__" : {
+        "__timestamp" : {
+            "enabled" : true,
+            "path" : "created"
+        }
+    }
+}

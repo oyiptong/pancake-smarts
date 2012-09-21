@@ -61,7 +61,14 @@ public class TopicModelController extends Controller {
 
         try {
             try {
-                TopicModel model = new TopicModel(modelName, numTopics.intValue(), 1/numTopics, 1/numTopics, dataReader);
+                double alpha;
+                double beta;
+
+                // only doing symmetric for now, set to 1 / numTopics
+                alpha = 1.0/numTopics;
+                beta = alpha;
+
+                TopicModel model = new TopicModel(modelName, numTopics.intValue(), alpha, beta, dataReader);
                 model.saveObjectGraph();
 
                 output.put("status", "OK");
